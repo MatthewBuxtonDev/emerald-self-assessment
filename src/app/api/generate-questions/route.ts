@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateResponse } from "@/lib/gemini";
-import { buildFirstQuestionPrompt } from "@/lib/prompts";
+import { generateResponse } from "@/lib/groq";
+import { buildFirstQuestionMessages } from "@/lib/prompts";
 import { UserInfoSchema } from "@/types";
 
 export async function POST(req: NextRequest) {
@@ -9,20 +9,18 @@ export async function POST(req: NextRequest) {
     const parsed = UserInfoSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid user info" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid user info" }, { status: 400 });
     }
 
-    const { systemInstruction, prompt } = buildFirstQuestionPrompt(parsed.data);
-    const data = await generateResponse(systemInstruction, prompt);
+    const messages = buildFirstQuestionMessages(parsed.data);
+    const data = await generateResponse(messages);
 
     return NextResponse.json({ question: data.question });
   } catch (error: any) {
     console.error("Error generating questions:", error);
-    const message =
-      error?.message || "Failed to generate questions";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json(
+      { error: error?.message || "Failed to generate questions" },
+      { status: 502 }
+    );
   }
 }

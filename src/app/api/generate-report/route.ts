@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateResponse } from "@/lib/gemini";
-import { buildReportPrompt } from "@/lib/prompts";
+import { generateResponse } from "@/lib/groq";
+import { buildReportMessages } from "@/lib/prompts";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,17 +14,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { systemInstruction, prompt } = buildReportPrompt(
-      userInfo,
-      conversation
-    );
-    const data = await generateResponse(systemInstruction, prompt);
+    const messages = buildReportMessages(userInfo, conversation);
+    const data = await generateResponse(messages);
 
     return NextResponse.json({ profile: data.profile });
   } catch (error: any) {
     console.error("Error generating report:", error);
-    const message =
-      error?.message || "Failed to generate report";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json(
+      { error: error?.message || "Failed to generate report" },
+      { status: 502 }
+    );
   }
 }

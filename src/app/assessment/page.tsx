@@ -61,11 +61,10 @@ export default function AssessmentPage() {
 
       if (res.status === 502) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(
-          data.error === "GEMINI_API_KEY environment variable is not set"
-            ? "The API key is not configured. Please contact the site owner."
-            : "The AI service is currently unavailable. Please try again."
-        );
+        if (data.error?.includes("GROQ_API_KEY")) {
+          throw new Error("The API key is not configured. Please contact the site owner.");
+        }
+        throw new Error("The AI service is currently unavailable. Please try again.");
       }
 
       if (!res.ok) throw new Error("Something went wrong. Please try again.");

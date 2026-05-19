@@ -39,7 +39,7 @@ This platform is inspired by the Next-Generation Learning initiative (sponsored 
 ### 2.1 High-Level Flow
 
 ```
-Browser                        Vercel (API)                Gemini API
+Browser                        Vercel (API)                Groq API
   │                               │                           │
   ├─ POST /api/generate-questions ──→                         │
   │      (userInfo)                │──── generate prompt ────→│
@@ -66,7 +66,7 @@ Browser                        Vercel (API)                Gemini API
 ### 2.2 Why No Database?
 
 - **Privacy**: No personal data stored. Close the tab = clean slate.
-- **Simplicity**: Zero infrastructure beyond Vercel + Gemini API key.
+- **Simplicity**: Zero infrastructure beyond Vercel + Groq API key.
 - **Cost**: Vercel hobby tier is free.
 - **Speed**: No cold-start DB connections, migrations, or data modeling.
 - **Compliance**: No student data retention obligations.
@@ -81,7 +81,7 @@ Browser                        Vercel (API)                Gemini API
 | TypeScript | 5.x (strict) | Type safety |
 | Tailwind CSS | 4.x | Utility-first styling |
 | shadcn/ui | latest | Accessible component primitives |
-| @google/generative-ai | latest | Gemini API client |
+| Groq API (fetch) | — | OpenAI-compatible LLM API |
 | Recharts | 2.x | Optional report visuals |
 | html2canvas | 1.x | Capture report DOM for PDF |
 | jsPDF | 2.x | Generate PDF |
@@ -94,7 +94,7 @@ Browser                        Vercel (API)                Gemini API
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Google AI Studio API key |
+| `GROQ_API_KEY` | Yes | Groq API key (get at https://console.groq.com) |
 | `NEXT_PUBLIC_APP_URL` | No | Canonical URL for metadata |
 
 ---
@@ -142,7 +142,7 @@ Generates the first question based on user info.
 }
 ```
 
-**Errors:** `502` (Gemini malformed), `500` (internal)
+**Errors:** `502` (Groq unavailable), `500` (internal)
 
 ---
 
@@ -217,7 +217,7 @@ Synthesises the full conversation into a Learner Profile.
 
 ---
 
-## 5. Gemini Prompt Engineering
+## 5. Groq Prompt Engineering
 
 ### 5.1 Prompt Locations
 
@@ -457,7 +457,7 @@ async function downloadPDF(elementId: string, fileName: string) {
 
 ### 8.3 Why Not Server-Side?
 
-Vercel Hobby tier has a 10s serverless function timeout. Gemini API calls already consume 2-5s. Adding server-side PDF rendering risks timeout. Client-side avoids this entirely.
+Vercel Hobby tier has a 10s serverless function timeout. Adding server-side PDF rendering on top of API calls risks timeout. Client-side avoids this entirely.
 
 ---
 
@@ -465,9 +465,9 @@ Vercel Hobby tier has a 10s serverless function timeout. Gemini API calls alread
 
 | Scenario | UX | Technical |
 |----------|----|-----------|
-| Gemini API key missing | Error page, "Contact support" | 500, logged |
-| Gemini returns invalid JSON | "Something went wrong — try again" | Retry with stricter prompt |
-| Gemini rate-limited | Wait + auto-retry | Exponential backoff, 3 retries |
+| Groq API key missing | Error page, "Contact support" | 500, logged |
+| Groq returns invalid JSON | "Something went wrong — try again" | Retry with stricter prompt |
+| Groq rate-limited | Wait + auto-retry | Exponential backoff, 3 retries |
 | Network failure | "Check your connection" | Caught by try/catch |
 | Student refreshes | Restore from sessionStorage | Persist on every change |
 | studentStorage unavailable | State still works, no persistence | try/catch, continue silently |
@@ -480,7 +480,7 @@ Vercel Hobby tier has a 10s serverless function timeout. Gemini API calls alread
 
 | Scope | Tool | What |
 |-------|------|------|
-| **Unit** | Vitest | Prompt builders, Zod schemas, Gemini response parsing, state transitions |
+| **Unit** | Vitest | Prompt builders, Zod schemas, Groq response parsing, state transitions |
 | **Component** | Vitest + Testing Library | Form validation, question rendering, message display |
 | **E2E** | Playwright | Full flow: landing → onboarding → assessment → report → PDF |
 | **AI** | Manual | Verify questions are personalised, report references student answers, no rubric language |
@@ -493,7 +493,7 @@ Vercel Hobby tier has a 10s serverless function timeout. Gemini API calls alread
 
 1. Push to GitHub
 2. Import in Vercel dashboard
-3. Set `GEMINI_API_KEY` in environment variables
+3. Set `GROQ_API_KEY` in environment variables
 4. Deploy (auto-detects Next.js)
 
 ### 11.2 CI/CD
@@ -525,7 +525,7 @@ git clone <repo-url>
 cd next-generation-learning
 npm install
 cp .env.example .env.local
-# Edit .env.local: add GEMINI_API_KEY
+# Edit .env.local: add GROQ_API_KEY
 npm run dev     # → http://localhost:3000
 ```
 
@@ -580,7 +580,7 @@ next-generation-learning/
     │       ├── assessment/
     │       └── report/
     ├── lib/
-    │   ├── gemini.ts            # Gemini API wrapper
+    │   ├── groq.ts              # Groq API wrapper
     │   ├── prompts.ts           # Prompt templates
     │   └── utils.ts             # Shared utilities
     ├── hooks/                   # React hooks
@@ -610,7 +610,7 @@ next-generation-learning/
 | Lighthouse Performance | > 90 |
 | Lighthouse Accessibility | > 90 |
 | Initial JS bundle | < 150 KB gzipped |
-| Gemini API p95 | < 5s |
+| Groq API p95 | < 3s |
 | PDF generation | < 2s |
 
 ---
@@ -622,4 +622,4 @@ next-generation-learning/
 3. **No personal/clinical questions** — no mental health, family, trauma, or diagnostic topics.
 4. **AI generates one question at a time** — sequential adaptive conversation, not batch.
 5. **PDF is client-side** — html2canvas + jsPDF, never server-side.
-6. **Gemini API key** required in `.env.local` — never committed.
+6. **Groq API key** required in `.env.local` — never committed.

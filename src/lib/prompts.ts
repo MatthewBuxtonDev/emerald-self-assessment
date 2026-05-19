@@ -8,13 +8,28 @@ const SYSTEM_GUARDRAILS = `You are a friendly mentor having a conversation about
 - Do not use clinical, diagnostic, or therapeutic language.
 - This is a conversation, not an interrogation.`;
 
-export function buildFirstQuestionPrompt(userInfo: UserInfo): {
-  systemInstruction: string;
-  prompt: string;
-} {
-  return {
-    systemInstruction: SYSTEM_GUARDRAILS,
-    prompt: `Generate the first question to start a conversation about learning with a student.
+export function buildFirstQuestionMessages(userInfo: UserInfo): {
+  role: "system" | "user" | "assistant";
+  content: string;
+}[] {
+  return [
+    {
+      role: "system",
+      content: `${SYSTEM_GUARDRAILS}
+
+Return ONLY valid JSON in the following format, no extra text:
+{
+  "question": {
+    "id": "q_1",
+    "text": "the question text",
+    "format": "open",
+    "capability": "collaboration" | "metacognition" | "agency"
+  }
+}`,
+    },
+    {
+      role: "user",
+      content: `Generate the first question to start a conversation about learning with this student.
 
 Student profile:
 - Name: ${userInfo.name}
@@ -27,23 +42,14 @@ The question should:
 - Reference one of their interests or passions to build rapport
 - Be open-ended and encourage reflection
 - Target one of three learning themes: Working with Others (collaboration), Thinking about Learning (reflection), or Taking Action (initiative)
-- Feel like a curious mentor asking, not a test
-
-Return JSON:
-{
-  "question": {
-    "id": "q_1",
-    "text": "the question text",
-    "format": "open",
-    "capability": "collaboration" | "metacognition" | "agency"
-  }
-}`,
-  };
+- Feel like a curious mentor asking, not a test`,
+    },
+  ];
 }
 
-export function buildContinuationPrompt(
+export function buildContinuationMessages(
   conversation: Message[]
-): { systemInstruction: string; prompt: string } {
+): { role: "system" | "user" | "assistant"; content: string }[] {
   const conversationLog = conversation
     .map((m) => `${m.role === "ai" ? "Mentor" : "Student"}: ${m.text}`)
     .join("\n");
@@ -55,9 +61,25 @@ export function buildContinuationPrompt(
     }
   }
 
-  return {
-    systemInstruction: SYSTEM_GUARDRAILS,
-    prompt: `Here is the conversation so far between a mentor and a student:
+  return [
+    {
+      role: "system",
+      content: `${SYSTEM_GUARDRAILS}
+
+Return ONLY valid JSON in the following format, no extra text:
+{
+  "question": {
+    "id": "q_N",
+    "text": "the question text",
+    "format": "open",
+    "capability": "collaboration" | "metacognition" | "agency"
+  } | null,
+  "complete": false | true
+}`,
+    },
+    {
+      role: "user",
+      content: `Here is the conversation so far between a mentor and a student:
 
 ${conversationLog}
 
@@ -73,31 +95,23 @@ The question should:
 - Be personalised to the student's interests and previous answers
 - Use whatever format suits this moment (open-ended, scenario, reflection)
 
-If each theme has at least 3 substantive exchanges OR total exchanges reach 15, set "complete": true.
-
-Return JSON:
-{
-  "question": {
-    "id": "q_N",
-    "text": "the question text",
-    "format": "open",
-    "capability": "collaboration" | "metacognition" | "agency"
-  } | null,
-  "complete": false | true
-}`,
-  };
+If each theme has at least 3 substantive exchanges OR total exchanges reach 15, set "complete": true.`,
+    },
+  ];
 }
 
-export function buildReportPrompt(
+export function buildReportMessages(
   userInfo: UserInfo,
   conversation: Message[]
-): { systemInstruction: string; prompt: string } {
+): { role: "system" | "user" | "assistant"; content: string }[] {
   const conversationLog = conversation
     .map((m) => `${m.role === "ai" ? "Mentor" : "Student"}: ${m.text}`)
     .join("\n");
 
-  return {
-    systemInstruction: `You are a mentor writing a constructive Learner Profile for a student. This is NOT a test report.
+  return [
+    {
+      role: "system",
+      content: `You are a mentor writing a constructive Learner Profile for a student. This is NOT a test report.
 
 RULES (critical):
 - NO scores, NO levels, NO rubric language (do not use: beginning, developing, proficient, advanced, score, rating, level)
@@ -106,18 +120,9 @@ RULES (critical):
 - Reference specific things the student said to show you listened
 - Every strength should describe what they do well and why it matters
 - Every next step should be specific, positive, and actionable
-- The challenge should be one concrete thing to try in the coming days`,
-    prompt: `Write a Learner Profile for this student based on their conversation.
+- The challenge should be one concrete thing to try in the coming days
 
-Student: ${userInfo.name}
-Year: ${userInfo.yearLevel}
-Interests: ${userInfo.interests.join(", ") || "not specified"}
-Passions: ${userInfo.passions.join(", ") || "not specified"}
-
-Full conversation:
-${conversationLog}
-
-Return JSON:
+Return ONLY valid JSON in the following format, no extra text:
 {
   "profile": {
     "studentName": "${userInfo.name}",
@@ -131,5 +136,18 @@ Return JSON:
     "challenge": "One specific thing to try this week"
   }
 }`,
-  };
+    },
+    {
+      role: "user",
+      content: `Write a Learner Profile for this student based on their conversation.
+
+Student: ${userInfo.name}
+Year: ${userInfo.yearLevel}
+Interests: ${userInfo.interests.join(", ") || "not specified"}
+Passions: ${userInfo.passions.join(", ") || "not specified"}
+
+Full conversation:
+${conversationLog}`,
+    },
+  ];
 }

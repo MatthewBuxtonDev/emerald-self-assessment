@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateResponse } from "@/lib/gemini";
-import { buildContinuationPrompt } from "@/lib/prompts";
+import { generateResponse } from "@/lib/groq";
+import { buildContinuationMessages } from "@/lib/prompts";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { systemInstruction, prompt } = buildContinuationPrompt(conversation);
-    const data = await generateResponse(systemInstruction, prompt);
+    const messages = buildContinuationMessages(conversation);
+    const data = await generateResponse(messages);
 
     return NextResponse.json({
       question: data.question || null,
@@ -23,8 +23,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error continuing assessment:", error);
-    const message =
-      error?.message || "Failed to continue assessment";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json(
+      { error: error?.message || "Failed to continue assessment" },
+      { status: 502 }
+    );
   }
 }

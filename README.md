@@ -9,7 +9,7 @@ Built for the Next-Generation Learning initiative (The Australian Learning Lectu
 - **Framework:** Next.js 14+ (App Router)
 - **Language:** TypeScript (strict)
 - **Styling:** Tailwind CSS + shadcn/ui
-- **AI:** Google Gemini API
+- **AI:** Groq API (Llama 3.3 70B)
 - **PDF:** html2canvas + jsPDF (client-side)
 - **Hosting:** Vercel (Hobby)
 
@@ -17,7 +17,7 @@ Built for the Next-Generation Learning initiative (The Australian Learning Lectu
 
 ```bash
 cp .env.example .env.local
-# Add your GEMINI_API_KEY to .env.local
+# Add your GROQ_API_KEY to .env.local
 
 npm install
 npm run dev
@@ -40,13 +40,13 @@ Open [http://localhost:3000](http://localhost:3000).
 src/
 ├── app/          # Pages + API routes
 ├── components/   # UI components
-├── lib/          # Gemini client + prompts
+├── lib/          # Groq client + prompts
 ├── providers/    # React context
 └── types/        # Zod schemas + TypeScript types
 ```
 
 ## Environment
 
-`GEMINI_API_KEY` is required. Get one at https://aistudio.google.com/apikey
+`GROQ_API_KEY` is required. Get one free at https://console.groq.com (no credit card needed)
 
 

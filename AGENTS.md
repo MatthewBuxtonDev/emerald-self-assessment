@@ -3,7 +3,7 @@
 ## Stack
 
 - Next.js 14+ (App Router), TypeScript (strict), Tailwind CSS v4, shadcn/ui
-- Google Gemini API (`@google/generative-ai`) for AI conversation + report
+- Groq API (Llama 3.3 70B via OpenAI-compatible endpoint) for AI conversation + report
 - Recharts for visual elements, html2canvas + jsPDF for PDF download
 - Zod for validation, SWR for data fetching, sessionStorage for persistence
 - Hosted on Vercel (Hobby tier, no database)
@@ -27,7 +27,7 @@ src/
 ├── components/
 │   ├── ui/       # shadcn/ui primitives
 │   └── features/ # Feature-specific (landing, onboarding, assessment, report)
-├── lib/          # gemini.ts, prompts.ts, utils.ts
+├── lib/          # groq.ts, prompts.ts, utils.ts
 ├── hooks/        # React hooks
 ├── providers/    # React context
 └── types/        # All types + Zod schemas (shared FE/BE)
@@ -39,15 +39,15 @@ src/
 2. **Sequential adaptive assessment** — the AI generates one question at a time. Each question uses full conversation history as context. Three API calls: `generate-questions` (first), `continue-assessment` (loop), `generate-report` (final).
 3. **No scores/levels/rubrics** in the report — only constructive strengths and next steps.
 4. **No personal questions** — AI prompts explicitly ban mental health, family, trauma, or diagnostic topics. Focus stays on learning experiences.
-5. **Gemini API key** goes in `.env.local` as `GEMINI_API_KEY`. Never commit.
+5. **Groq API key** goes in `.env.local` as `GROQ_API_KEY`. Never commit.
 6. **PDF is client-side** — html2canvas captures the report DOM, jsPDF wraps it. Avoids Vercel serverless timeout.
 
 ## Prompt Engineering
 
-- Prompts live in `src/lib/prompts.ts` as exported functions
+- Prompts live in `src/lib/prompts.ts` as exported functions (returning OpenAI-format messages arrays)
 - Question generation prompt: personalises questions to student interests, targets 3 themes (Working with Others, Thinking about Learning, Taking Action), no personal/clinical topics
 - Report generation prompt: produces constructive profile (no scores/levels), references specific student answers, second-person ("you") narrative
-- Both use `responseMimeType: "application/json"` for structured output
+- Both use `response_format: { type: "json_object" }` for structured output via Groq
 
 ## Conventions
 
@@ -55,11 +55,11 @@ src/
 - shadcn/ui components go in `components/ui/`, custom components in feature subdirectories
 - Feature components go in `components/features/<name>/`
 - Each interactive component handles: loading, empty, active, error, disabled, success states
-- Environment variables: only `GEMINI_API_KEY` required; `NEXT_PUBLIC_APP_URL` optional
+- Environment variables: only `GROQ_API_KEY` required; `NEXT_PUBLIC_APP_URL` optional
 - All state is ephemeral — closing the tab = clean slate
 - All pages use responsive design (`px-4 sm:px-6`, touch-friendly targets, `sm:` breakpoints)
 - Color contrast: never use `text-zinc-400` on light backgrounds (2.4:1 fails WCAG AA); use `text-zinc-500` minimum
-- API routes use lazy import of `@google/generative-ai` inside the handler to avoid build-time errors
+- API routes use lazy import of AI SDK inside the handler to avoid build-time errors
 - Error messages in assessment page are specific (detect 502, "API key not configured", etc.)
 
 ## Questions to Ask Before Making Changes

@@ -42,7 +42,7 @@ Landing Page (/)
 | **Framework** | Next.js 14+ (App Router) | Full-stack, Vercel-native, API routes |
 | **Language** | TypeScript (strict) | Type safety |
 | **Styling** | Tailwind CSS + shadcn/ui | Accessible, fast, consistent design |
-| **AI** | Google Gemini API | Dynamic question generation + report synthesis |
+| **AI** | Groq API (Llama 3.3 70B) | Dynamic question generation + report synthesis |
 | **Charts** | Recharts | Optional visual elements for report |
 | **PDF** | Client-side (html2canvas + jsPDF) | Avoid serverless timeout issues |
 | **Hosting** | Vercel (Hobby tier) | No DB needed |
@@ -113,7 +113,7 @@ No scores, no levels, no diagnostic language. Forward-looking and helpful.
 
 ```
 next-generation-learning/
-├── .env.local                    # GEMINI_API_KEY
+├── .env.local                    # GROQ_API_KEY
 ├── PROJECT_PLAN.md               # This file
 ├── DOCUMENTATION.md              # Full technical reference
 ├── AGENTS.md                     # AI session instructions
@@ -136,7 +136,7 @@ next-generation-learning/
 │   │       ├── assessment/       # Chat interface components
 │   │       └── report/           # Profile display components
 │   ├── lib/
-│   │   ├── gemini.ts             # Gemini API client
+│   │   ├── groq.ts               # Groq API client
 │   │   ├── prompts.ts            # Prompt templates
 │   │   └── utils.ts              # Utilities
 │   ├── hooks/                    # React hooks
@@ -152,7 +152,7 @@ next-generation-learning/
 ### Phase 1 — Foundation
 - [ ] Project scaffold with Tailwind + shadcn/ui
 - [ ] TypeScript types and Zod schemas
-- [ ] Gemini API client + prompt templates
+- [ ] Groq API client + prompt templates
 - [ ] Landing page
 
 ### Phase 2 — Onboarding
@@ -190,10 +190,10 @@ next-generation-learning/
 
 | Concern | Mitigation |
 |---------|-----------|
-| Gemini API down | Friendly error with retry; state preserved in sessionStorage |
+| Groq API down | Friendly error with retry; state preserved in sessionStorage |
 | Student refreshes mid-conversation | sessionStorage restores state |
 | Student brings up personal topics | AI redirects gently to learning context |
 | Conversation goes too long | Max 15 exchanges, then force-complete |
 | Student gives very short answers | AI asks gentle follow-up |
 | PDF generation on mobile | html2canvas + jsPDF fallback to window.print() |
-| Vercel 10s timeout | Gemini responses typically 2-5s; monitor |
+| Vercel 10s timeout | Groq responses typically 1-3s; monitor |
