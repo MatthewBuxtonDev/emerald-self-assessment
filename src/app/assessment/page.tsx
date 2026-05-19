@@ -80,7 +80,7 @@ export default function AssessmentPage() {
 
       if (res.status === 502) {
         const data = await res.json().catch(() => ({}));
-        if (data.error?.includes("OPENROUTER_API_KEY")) {
+        if (data.error?.includes("MISTRAL_API_KEY")) {
           throw new Error("The API key is not configured. Please contact the site owner.");
         }
         throw new Error("The AI service is currently unavailable. Please try again.");

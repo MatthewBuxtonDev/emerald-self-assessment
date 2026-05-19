@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateResponse } from "@/lib/openrouter";
+import { generateResponse } from "@/lib/mistral";
 import { buildFirstQuestionMessages } from "@/lib/prompts";
 import { UserInfoSchema } from "@/types";
 

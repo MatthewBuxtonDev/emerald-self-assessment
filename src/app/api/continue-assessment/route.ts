@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateResponse } from "@/lib/openrouter";
+import { generateResponse } from "@/lib/mistral";
 import { buildContinuationMessages } from "@/lib/prompts";
 
 export async function POST(req: NextRequest) {
