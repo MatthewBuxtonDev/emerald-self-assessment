@@ -48,3 +48,5 @@ src/
 ## Environment
 
 `GEMINI_API_KEY` is required. Get one at https://aistudio.google.com/apikey
+
+
