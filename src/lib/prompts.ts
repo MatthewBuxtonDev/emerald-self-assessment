@@ -184,10 +184,20 @@ export function buildReportMessages(
     .filter(Boolean)
     .join(", ") || "not specified";
 
+  const studentAnswers = conversation.filter((m) => m.role === "user");
+  const shortAnswers = studentAnswers.filter((a) => a.text.split(" ").length < 5).length;
+  const dontKnowAnswers = studentAnswers.filter((a) =>
+    /i don'?t know|idk|not sure|no idea/i.test(a.text)
+  ).length;
+  const engagementNote =
+    shortAnswers > studentAnswers.length * 0.5
+      ? `Note: The student gave short answers (under 5 words) to ${shortAnswers}/${studentAnswers.length} questions, and said "I don't know" ${dontKnowAnswers} times. This suggests limited engagement — reflect this honestly in the profile. If they didn't engage deeply, say so constructively rather than inventing strengths.`
+      : "";
+
   return [
     {
       role: "system",
-      content: `You are a mentor writing a detailed Learner Profile for a student. This is NOT a test report.
+      content: `You are a mentor writing an honest, constructive Learner Profile for a student. This is NOT a test report — and it is NOT a participation trophy. Be direct about what the student's answers reveal or don't reveal.
 
 The profile should assess the student across these 9 Learner Attributes:
 1. Analytical Thinking — systematic analysis and presentation
@@ -202,12 +212,15 @@ The profile should assess the student across these 9 Learner Attributes:
 
 RULES (critical):
 - NO scores, NO levels, NO rubric language
+- BE HONEST: If the student gave shallow answers or said "I don't know" repeatedly, say so. Frame it as a starting point, not a flaw.
 - Write in second person ("you") for student sections
-- Reference specific things the student said to ground each observation
-- Every section should identify a strength AND suggest an area to build on
-- Every next step must be specific, positive, and actionable
+- Reference specific things the student said (or didn't say) to ground each observation
+- Don't invent strengths where the conversation reveals nothing
+- For attributes with little data, say "There wasn't enough conversation to assess this yet" rather than guessing
+- Every next step must be constructive and encouraging but not flattering
 - The challenge should be one concrete thing to try this week
 - teacherSuggestions provides practical classroom strategies per attribute — write in third person about "this student"
+- nextSteps should be GENERAL (e.g. "Try to engage in more collaborative projects") NOT hyper-specific (e.g. "Try to doodle more in science class")
 
 Return ONLY valid JSON:
 {
@@ -282,7 +295,8 @@ Self-description: ${userInfo.selfDescription || "not specified"}
 Full conversation:
 ${conversationLog}
 
-Cover every attribute the conversation gives insight into. For each, explain what the student's answers reveal about their strength and growth area. Write teacherSuggestions for ALL 9 attributes — even if coverage was light, suggest general strategies appropriate for their year level. Make strategies practical and specific (e.g. "Provide sentence starters for peer feedback" not just "Encourage collaboration").`,
+${engagementNote}
+Cover every attribute the conversation gives insight into. If coverage was light, say so honestly. nextSteps should be general strategies (e.g. "Try to engage in more collaborative projects to build teamwork skills") not hyper-specific tasks. Write teacherSuggestions for ALL 9 attributes — keep strategies general enough to apply across subjects but specific enough to be useful.`,
     },
   ];
 }
