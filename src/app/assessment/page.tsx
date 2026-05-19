@@ -21,6 +21,7 @@ export default function AssessmentPage() {
   const [loading, setLoading] = useState(false);
   const [initialised, setInitialised] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [canFinish, setCanFinish] = useState(false);
 
   useEffect(() => {
     if (!state.userInfo) {
@@ -114,6 +115,8 @@ export default function AssessmentPage() {
 
       const data = await res.json();
 
+      if (data.ready) setCanFinish(true);
+
       if (data.complete || !data.question) {
         finishAssessment();
       } else {
@@ -160,7 +163,6 @@ export default function AssessmentPage() {
   const lastAiMsg = [...state.conversation].reverse().find((m) => m.role === "ai");
   const hasOptions = lastAiMsg?.options && lastAiMsg.options.length > 0;
   const questionCount = state.conversation.filter((m) => m.role === "ai").length;
-  const canFinishEarly = questionCount >= 3;
 
   return (
     <div className="flex-1 flex flex-col h-screen max-h-dvh">
@@ -304,11 +306,11 @@ export default function AssessmentPage() {
             </div>
           )}
 
-          {canFinishEarly && !loading && (
+          {canFinish && !loading && (
             <div className="text-center">
               <button
                 onClick={finishAssessment}
-                className="text-xs text-zinc-400 hover:text-zinc-600 underline underline-offset-2 transition-colors"
+                className="text-xs text-zinc-500 hover:text-zinc-700 underline underline-offset-2 transition-colors"
               >
                 I&apos;m done — show me my profile
               </button>

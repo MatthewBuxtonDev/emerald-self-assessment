@@ -8,25 +8,27 @@ const SYSTEM_GUARDRAILS = `You are a friendly mentor having a conversation about
 - Do not use clinical, diagnostic, or therapeutic language.
 - This is a conversation, not an interrogation.`;
 
-const QUESTIONS_ABOUT_FORMATS = `
-You can choose from THREE question formats. Pick whichever suits the moment:
+const FORMAT_GUIDE = `
+You can choose from THREE question formats:
 
-1. "open" — free text answer. Use when the student seems engaged and able to write a response.
-2. "scale" — a 5-point agreement scale. Use when the student seems unsure, gives short answers, or you want to make it easy for them. Always use these 5 labels:
-   ["Not at all like me", "A little like me", "Somewhat like me", "A lot like me", "Exactly like me"]
-3. "choice" — multiple choice with 3-4 options. Use when you want to give structure, or the student said "I don't know" last time.
+1. "open" — free text answer. Use when the student seems engaged and able to write.
+2. "scale" — 5-point agreement scale. Use when the student seems unsure or gives short answers.
+   Labels: ["Not at all like me", "A little like me", "Somewhat like me", "A lot like me", "Exactly like me"]
+3. "choice" — multiple choice with 3-4 options. Use when you want to give structure.
 
 Rotate formats — don't use the same format twice in a row.`;
 
-const QUESTION_FORMAT_JSON = `
-For "scale" format:
-{ "id": "q_N", "text": "question text", "format": "scale", "options": [{ "label": "Not at all like me", "value": "1" }, ...], "capability": "..." }
-
-For "choice" format:
-{ "id": "q_N", "text": "question text", "format": "choice", "options": [{ "label": "Option A", "value": "a" }, ...], "capability": "..." }
-
-For "open" format:
-{ "id": "q_N", "text": "question text", "format": "open", "capability": "..." }`;
+const JSON_SCHEMA = `{
+  "question": {
+    "id": "q_N",
+    "text": "your question text here",
+    "format": "open" | "scale" | "choice",
+    "options": [{ "label": "...", "value": "..." }] | null,
+    "capability": "collaboration" | "metacognition" | "agency"
+  } | null,
+  "ready": true | false,
+  "complete": true | false
+}`;
 
 export function buildFirstQuestionMessages(userInfo: UserInfo): {
   role: "system" | "user" | "assistant";
@@ -37,20 +39,14 @@ export function buildFirstQuestionMessages(userInfo: UserInfo): {
       role: "system",
       content: `${SYSTEM_GUARDRAILS}
 
-CRITICAL: Ask a VERY SPECIFIC, CONCRETE question — not abstract or vague.
+Ask a VERY SPECIFIC, CONCRETE question — not abstract or vague.
 BAD example: "How do you approach learning?"
 GOOD example: "You said you're into soccer. When your team is learning a new drill, how do you figure out what to do?"
 
-${QUESTIONS_ABOUT_FORMATS}
-
-Pick ONE concrete question. The format can be "open", "scale", or "choice" — whichever you think this student will find easiest to answer on the first go.
-
-For "scale" questions, the text should be a statement they agree/disagree with (e.g. "When I'm stuck on something, I usually try a different approach").
+${FORMAT_GUIDE}
 
 Return ONLY valid JSON:
-{
-  "question": ${QUESTION_FORMAT_JSON}
-}`,
+${JSON_SCHEMA}`,
     },
     {
       role: "user",
@@ -68,6 +64,35 @@ The question MUST reference one of their interests and be about a REAL, SPECIFIC
   ];
 }
 
+function buildSystemPrompt(
+  lastFormat: string | undefined,
+  isShortAnswer: boolean,
+  capCounts: Record<string, number>,
+  aiCount: number
+): string {
+  const shortHint = isShortAnswer
+    ? "\nThe student gave a very short answer. Switch to a 'scale' or 'choice' format this time."
+    : "";
+
+  return `${SYSTEM_GUARDRAILS}
+
+RULES:
+1. Ask about a SPECIFIC experience — not "how do you learn" but "tell me about a time when..."
+2. Reference something the student already said
+3. Each question must be DIFFERENT from previous ones
+4. If the student gave a short answer, SWITCH to scale or choice format.${shortHint}
+
+${FORMAT_GUIDE}
+
+Last format used: "${lastFormat || "none"}" — do NOT use the same format twice in a row.
+
+READY: set "ready": true when you have enough info (around 4-6 questions, 1-2 answers per theme). This shows a "Finish" button.
+COMPLETE: set "complete": true only if you truly can't ask more or it's gone too long (8+ questions).
+
+Return ONLY valid JSON:
+${JSON_SCHEMA}`;
+}
+
 export function buildContinuationMessages(
   conversation: Message[]
 ): { role: "system" | "user" | "assistant"; content: string }[] {
@@ -80,46 +105,19 @@ export function buildContinuationMessages(
     .pop()?.text || "";
   const isShortAnswer = lastAnswer.split(" ").length < 5;
   const aiCount = conversation.filter((m) => m.role === "ai").length;
-  const totalExchanges = conversation.filter((m) => m.role === "user").length;
 
   const capCounts: Record<string, number> = {};
   for (const m of conversation) {
     if (m.capability) capCounts[m.capability] = (capCounts[m.capability] || 0) + 1;
   }
 
-  // Find which format was used last
   const lastAiMsg = [...conversation].reverse().find((m) => m.role === "ai");
   const lastFormat = lastAiMsg?.format;
-  const usedFormats = conversation.filter((m) => m.role === "ai").map((m) => m.format);
 
   return [
     {
       role: "system",
-      content: `${SYSTEM_GUARDRAILS}
-
-RULES FOR GOOD QUESTIONS:
-1. Ask about a SPECIFIC experience or situation — not "how do you learn" but "tell me about a time when..."
-2. Reference something the student already said to make it feel like a real conversation
-3. Each question must be DIFFERENT from previous ones — don't repeat the same structure
-4. If the student gave a short answer ("I don't know", "yes", "maybe", one word), ASK A DIFFERENT FORMAT. For short answers, switch to a "scale" or "choice" format — they're easier to answer. Don't push harder on the same subject.
-
-${QUESTIONS_ABOUT_FORMATS}
-
-Last format used: "${lastFormat || "none"}" — do NOT use the same format twice in a row.
-
-${QUESTION_FORMAT_JSON}
-
-COMPLETION: Set "complete": true if ANY:
-- You've asked at least 6 questions total
-- OR the student has given 2+ answers per theme
-- OR the student seems disengaged (short answers)
-- Better to finish early than drag on.
-
-Return JSON:
-{
-  "question": ${QUESTION_FORMAT_JSON.replace(/\n/g, "\n  ")} | null,
-  "complete": true | false
-}`,
+      content: buildSystemPrompt(lastFormat, isShortAnswer, capCounts, aiCount),
     },
     {
       role: "user",
@@ -129,14 +127,12 @@ ${conversationLog}
 
 Stats:
 - Questions asked so far: ${aiCount}
-- Student answers given: ${totalExchanges}
-- Answer last student gave: "${lastAnswer}"${isShortAnswer ? " (Very short — use a scale or choice format this time.)" : ""}
-- Last format used: "${lastFormat}"${usedFormats.length > 1 ? ` (Formats used: ${usedFormats.join(", ")})` : ""}
-- Working with Others covered: ${capCounts["collaboration"] || 0}x
-- Thinking about Learning covered: ${capCounts["metacognition"] || 0}x
-- Taking Action covered: ${capCounts["agency"] || 0}x
+- Last answer: "${lastAnswer}"${isShortAnswer ? " (Very short — use scale or choice format)" : ""}
+- Working with Others: ${capCounts["collaboration"] || 0}x
+- Thinking about Learning: ${capCounts["metacognition"] || 0}x
+- Taking Action: ${capCounts["agency"] || 0}x
 
-Remember: if the student gave a short answer, switch to scale or choice format. If you have enough info, set "complete": true.`,
+If you have enough info (around 4-6 questions), set "ready": true. Only set "complete": true if you cannot ask anything else useful.`,
     },
   ];
 }
