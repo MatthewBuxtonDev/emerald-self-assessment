@@ -36,7 +36,17 @@ export const LearnerProfileSchema = z.object({
   themes: z
     .array(
       z.object({
-        name: z.enum(["Working with Others", "Thinking about Learning", "Taking Action"]),
+        name: z.enum([
+          "Analytical Thinking",
+          "Creativity",
+          "Curiosity",
+          "Mindful Agency",
+          "Motivation",
+          "Resilience",
+          "Community",
+          "Humanitarianism",
+          "Operational Action",
+        ]),
         strength: z.string(),
         growth: z.string(),
       })

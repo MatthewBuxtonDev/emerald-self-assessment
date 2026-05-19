@@ -9,19 +9,22 @@ const SYSTEM_GUARDRAILS = `You are a friendly mentor having a conversation about
 - This is a conversation, not an interrogation.`;
 
 const FORMAT_GUIDE = `
-You have three question formats available — use whichever best fits this student right now:
+You have three question formats — prefer "scale" or "choice" over "open" to keep answers focused:
+- "open" — short free text, use sparingly for narratives
+- "scale" — 5-point agreement ("Not at all like me" → "Exactly like me"), use by default
+- "choice" — multiple choice with 3-4 options, good when you need to narrow their thinking`;
 
-- "open" — free text, good when they're engaged and have things to say
-- "scale" — 5-point agreement ("Not at all like me" → "Exactly like me"), good when they seem unsure or are giving short answers
-- "choice" — multiple choice with 3-4 options, good for giving structure or when they said "I don't know"`;
+const ATTRIBUTE_GUIDE = `You are probing 9 Learner Attributes. Aim for roughly 2 questions per attribute (about 20 total). When you have solid coverage across most attributes, signal "ready".
 
-const THEME_GUIDE = `Probe each theme deeply from multiple angles:
-
-1. Working with Others — explore: communication, collaboration, conflict resolution, perspective-taking, leadership, teamwork
-2. Thinking about Learning — explore: reflection, goal-setting, self-awareness, growth mindset, seeking and using feedback
-3. Taking Action — explore: initiative, persistence, adaptability, problem-solving, planning, organisation
-
-For each theme, ask about DIFFERENT aspects over multiple questions. Don't just scratch the surface — explore how they handle different situations within each theme.`;
+1. analytical-thinking — Can analyse data, extract critical information, and present outcomes systematically
+2. creativity — Creates new possibilities, explores and experiments, connects ideas to produce worthwhile outcomes
+3. curiosity — Asks questions, seeks knowledge, comfortable with uncertainty and ambiguity
+4. mindful-agency — Aware of own thoughts/feelings/actions as a learner, takes responsibility, plans and manages learning
+5. motivation — Intrinsically driven, purposeful, able to focus, optimistic
+6. resilience — Perseveres, shows self-efficacy and independence while building positive bonds
+7. community — Works with others, feels belonging, understands connection to effective learning
+8. humanitarianism — Considers and acts inclusively for the betterment of society
+9. operational-action — Interprets, processes, communicates and acts on information in various modes`;
 
 const JSON_SCHEMA = `{
   "question": {
@@ -29,7 +32,7 @@ const JSON_SCHEMA = `{
     "text": "your question text here",
     "format": "open" | "scale" | "choice",
     "options": [{ "label": "...", "value": "..." }] | null,
-    "capability": "collaboration" | "metacognition" | "agency"
+    "capability": "analytical-thinking" | "creativity" | "curiosity" | "mindful-agency" | "motivation" | "resilience" | "community" | "humanitarianism" | "operational-action"
   } | null,
   "ready": true | false,
   "complete": true | false
@@ -44,15 +47,17 @@ export function buildFirstQuestionMessages(userInfo: UserInfo): {
       role: "system",
       content: `${SYSTEM_GUARDRAILS}
 
-Ask a VERY SPECIFIC, CONCRETE question — not abstract or vague.
-BAD example: "How do you approach learning?"
-GOOD example: "You said you're into soccer. When your team is learning a new drill, how do you figure out what to do?"
+You ask DIRECTED questions that guide the student toward a specific attribute — not vague openers.
+
+BAD example: "Tell me about how you learn."
+GOOD example (analytical-thinking): "When you get a science test back, what's the first thing you look at — your score, the questions you got wrong, or something else?"
+GOOD example (curiosity): "If your teacher says 'we're starting a new topic next week', do you usually look it up beforehand, wait to see what it's about, or ask friends what they know?"
 
 ${FORMAT_GUIDE}
 
-${THEME_GUIDE}
+${ATTRIBUTE_GUIDE}
 
-You'll be asking many questions across all three themes, so start with one area and branch out from there.
+Pick one attribute and a concrete question. Use "scale" or "choice" by default — only use "open" when a short personal example is needed.
 
 Return ONLY valid JSON:
 ${JSON_SCHEMA}`,
@@ -68,36 +73,37 @@ Student:
 - Passions: ${userInfo.passions.join(", ") || "not specified"}
 - Self-description: ${userInfo.selfDescription || "not specified"}
 
-The question MUST reference one of their interests and be about a REAL, SPECIFIC situation they have experienced. Make it easy for them to answer. Pick the best format for this student.`,
+The question MUST reference one of their interests and target a specific attribute. Use "scale" or "choice" format unless there's a strong reason for "open".`,
     },
   ];
 }
 
 function buildSystemPrompt(isShortAnswer: boolean, aiCount: number): string {
   const shortHint = isShortAnswer
-    ? "\nThe student gave a very short answer — consider using 'scale' or 'choice' format to make it easier."
+    ? "\nThe student gave a very short answer — use 'scale' or 'choice' next time to keep them focused."
     : "";
 
   const progressHint =
-    aiCount < 7
-      ? "You're still early in the conversation. Keep probing different aspects."
+    aiCount < 9
+      ? "You're still early. Keep moving across different attributes — don't dwell on one area."
       : aiCount < 15
-        ? "You're building a picture. Make sure each theme has coverage across multiple angles."
-        : "You should have solid coverage by now. Only signal ready if you've explored each theme thoroughly across at least 2-3 different angles each.";
+        ? "You're building a picture. Target attributes you've asked about least."
+        : "You should have decent coverage by now. Only signal ready if most attributes have been visited at least once.";
 
   return `${SYSTEM_GUARDRAILS}
 
 RULES:
-1. Ask about a SPECIFIC experience — not "how do you learn" but "tell me about a time when..."
-2. Reference something the student already said to make it conversational
-3. Each question should explore a new angle — don't repeat the same aspect${shortHint}
+1. Ask DIRECTED questions — give them a specific situation or choice to respond to
+2. Reference something the student already said to keep it conversational
+3. Each question targets ONE attribute and explores something new${shortHint}
+4. Default to "scale" format — it keeps answers structured and comparable
 
 ${FORMAT_GUIDE}
 
-${THEME_GUIDE}
+${ATTRIBUTE_GUIDE}
 
-READY: set "ready": true ONLY when you have built a holistic picture — aim for around 20 questions, roughly 6-7 per theme. Only signal ready when you have depth across all three themes.
-COMPLETE: set "complete": true only if the conversation has gone very long (30+ questions) or the student is clearly disengaged.
+READY: set "ready": true when most attributes have at least one question (aim for ~20 total, roughly 2 per attribute). Only signal ready when you have a well-rounded picture.
+COMPLETE: set "complete": true only if very long (30+ questions) or the student is disengaged.
 
 Progress: ${aiCount} questions asked so far. ${progressHint}
 
@@ -123,6 +129,20 @@ export function buildContinuationMessages(
     if (m.capability) capCounts[m.capability] = (capCounts[m.capability] || 0) + 1;
   }
 
+  const attrSummary = [
+    "analytical-thinking",
+    "creativity",
+    "curiosity",
+    "mindful-agency",
+    "motivation",
+    "resilience",
+    "community",
+    "humanitarianism",
+    "operational-action",
+  ]
+    .map((a) => `- ${a}: ${capCounts[a] || 0}x`)
+    .join("\n");
+
   return [
     {
       role: "system",
@@ -130,18 +150,17 @@ export function buildContinuationMessages(
     },
     {
       role: "user",
-      content: `Here's the conversation so far. Keep your next question concrete and different from what came before.
+      content: `Here's the conversation so far. Keep your next question directed and specific.
 
 ${conversationLog}
 
 Stats:
 - Questions asked so far: ${aiCount}
-- Last answer: "${lastAnswer}"${isShortAnswer ? " (Very short — use scale or choice format)" : ""}
-- Working with Others: ${capCounts["collaboration"] || 0}x
-- Thinking about Learning: ${capCounts["metacognition"] || 0}x
-- Taking Action: ${capCounts["agency"] || 0}x
+- Last answer: "${lastAnswer}"${isShortAnswer ? " (Very short — use scale or choice)" : ""}
+- Attributes covered:
+${attrSummary}
 
-If you have enough depth across all themes (aim for around 20 questions total, roughly 6-7 per theme), set "ready": true. Only set "complete": true if the conversation is very long (30+) or the student is disengaged.`,
+Pick the attribute with the LEAST coverage and ask a directed question about it. Aim for around 20 total (~2 per attribute) before signalling "ready".`,
     },
   ];
 }
@@ -158,12 +177,18 @@ export function buildReportMessages(
   return [
     {
       role: "system",
-      content: `You are a mentor writing a detailed, holistic Learner Profile for a student. This is NOT a test report.
+      content: `You are a mentor writing a detailed Learner Profile for a student. This is NOT a test report.
 
-The profile should cover all three learning themes in depth:
-1. Working with Others — how they collaborate, communicate, handle different perspectives, resolve conflicts
-2. Thinking about Learning — how they reflect, set goals, seek feedback, understand themselves as learners
-3. Taking Action — their initiative, persistence, adaptability, problem-solving approach
+The profile should assess the student across these 9 Learner Attributes:
+1. Analytical Thinking — systematic analysis and presentation
+2. Creativity — exploring, experimenting, connecting ideas
+3. Curiosity — questioning, seeking knowledge, comfort with ambiguity
+4. Mindful Agency — self-awareness, responsibility, planning learning
+5. Motivation — intrinsic drive, focus, optimism
+6. Resilience — perseverance, self-efficacy, independence
+7. Community — collaboration, belonging, connection to learning
+8. Humanitarianism — inclusivity, acting for societal betterment
+9. Operational Action — interpreting and acting on information
 
 RULES (critical):
 - NO scores, NO levels, NO rubric language
@@ -178,26 +203,26 @@ Return ONLY valid JSON:
   "profile": {
     "studentName": "${userInfo.name}",
     "dateGenerated": "${new Date().toISOString().split("T")[0]}",
-    "narrative": "3-4 sentence warm summary of how they learn, covering all three themes",
+    "narrative": "3-4 sentence warm summary of how they learn, touching on key attributes",
     "themes": [
       {
-        "name": "Working with Others" | "Thinking about Learning" | "Taking Action",
+        "name": "Analytical Thinking" | "Creativity" | "Curiosity" | "Mindful Agency" | "Motivation" | "Resilience" | "Community" | "Humanitarianism" | "Operational Action",
         "strength": "What they do well in this area, referencing something they said",
-        "growth": "A specific area to develop within this theme"
+        "growth": "A specific area to develop within this attribute"
       }
     ],
     "strengths": [
       { "title": "Short strength label", "narrative": "2-3 sentences referencing what they shared" }
     ],
     "nextSteps": ["specific suggestion 1", "specific suggestion 2", "specific suggestion 3"],
-    "interestsConnection": "How their passions connect to their learning journey across all themes",
-    "challenge": "One specific thing to try this week that ties together multiple themes"
+    "interestsConnection": "How their passions connect to their learning journey across these attributes",
+    "challenge": "One specific thing to try this week that ties together multiple attributes"
   }
 }`,
     },
     {
       role: "user",
-      content: `Write a detailed, holistic Learner Profile for this student based on their full conversation.
+      content: `Write a detailed Learner Profile for this student based on their full conversation.
 
 Student: ${userInfo.name}
 Year: ${userInfo.yearLevel}
@@ -207,7 +232,7 @@ Passions: ${userInfo.passions.join(", ") || "not specified"}
 Full conversation:
 ${conversationLog}
 
-Cover all three themes in depth. Reference specific things they said.`,
+Cover as many of the 9 Learner Attributes as the conversation allows. Reference specific things they said.`,
     },
   ];
 }

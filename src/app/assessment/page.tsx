@@ -6,10 +6,28 @@ import { useAssessment } from "@/providers/assessment-provider";
 import { generateId } from "@/lib/utils";
 
 const CAP_NAMES: Record<string, string> = {
-  collaboration: "Working with Others",
-  metacognition: "Thinking about Learning",
-  agency: "Taking Action",
+  "analytical-thinking": "Analytical",
+  creativity: "Creativity",
+  curiosity: "Curiosity",
+  "mindful-agency": "Mindful",
+  motivation: "Motivation",
+  resilience: "Resilience",
+  community: "Community",
+  humanitarianism: "Humanitarian",
+  "operational-action": "Operational",
 };
+
+const CAP_SLUGS = [
+  "analytical-thinking",
+  "creativity",
+  "curiosity",
+  "mindful-agency",
+  "motivation",
+  "resilience",
+  "community",
+  "humanitarianism",
+  "operational-action",
+] as const;
 
 export default function AssessmentPage() {
   const router = useRouter();
@@ -179,29 +197,45 @@ export default function AssessmentPage() {
               {questionCount} question{questionCount !== 1 ? "s" : ""}
             </span>
           </div>
-          <div className="flex gap-1.5 sm:gap-2 justify-center flex-wrap">
-            {(["collaboration", "metacognition", "agency"] as const).map(
-              (code) => {
-                const count = state.conversation.filter(
-                  (m) => m.role === "ai" && m.capability === code
-                ).length;
-                const pct = Math.min(Math.round((count / 7) * 100), 100);
-                return (
-                  <span
-                    key={code}
-                    className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
-                      pct >= 100
-                        ? "bg-green-50 border-green-200 text-green-700"
-                        : pct >= 50
-                          ? "bg-amber-50 border-amber-200 text-amber-700"
-                          : "bg-zinc-50 border-zinc-200 text-zinc-500"
-                    }`}
-                  >
-                    {CAP_NAMES[code]} {count > 0 ? `(${count})` : ""}
-                  </span>
-                );
-              }
-            )}
+          <div className="flex flex-wrap gap-1 justify-center">
+            {(() => {
+              const covered = CAP_SLUGS.filter((slug) =>
+                state.conversation.filter(
+                  (m) => m.role === "ai" && m.capability === slug
+                ).length > 0
+              ).length;
+              return (
+                <span
+                  className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
+                    covered >= 7
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : covered >= 4
+                        ? "bg-amber-50 border-amber-200 text-amber-700"
+                        : "bg-zinc-50 border-zinc-200 text-zinc-500"
+                  }`}
+                >
+                  {covered}/{CAP_SLUGS.length} attributes
+                </span>
+              );
+            })()}
+            {CAP_SLUGS.map((slug) => {
+              const count = state.conversation.filter(
+                (m) => m.role === "ai" && m.capability === slug
+              ).length;
+              if (count === 0) return null;
+              return (
+                <span
+                  key={slug}
+                  className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                    count >= 2
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : "bg-blue-50 border-blue-200 text-blue-600"
+                  }`}
+                >
+                  {CAP_NAMES[slug]}
+                </span>
+              );
+            })}
           </div>
         </div>
       </header>
