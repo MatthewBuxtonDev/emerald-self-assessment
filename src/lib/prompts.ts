@@ -9,14 +9,11 @@ const SYSTEM_GUARDRAILS = `You are a friendly mentor having a conversation about
 - This is a conversation, not an interrogation.`;
 
 const FORMAT_GUIDE = `
-You can choose from THREE question formats:
+You have three question formats available — use whichever best fits this student right now:
 
-1. "open" — free text answer. Use when the student seems engaged and able to write.
-2. "scale" — 5-point agreement scale. Use when the student seems unsure or gives short answers.
-   Labels: ["Not at all like me", "A little like me", "Somewhat like me", "A lot like me", "Exactly like me"]
-3. "choice" — multiple choice with 3-4 options. Use when you want to give structure.
-
-Rotate formats — don't use the same format twice in a row.`;
+- "open" — free text, good when they're engaged and have things to say
+- "scale" — 5-point agreement ("Not at all like me" → "Exactly like me"), good when they seem unsure or are giving short answers
+- "choice" — multiple choice with 3-4 options, good for giving structure or when they said "I don't know"`;
 
 const JSON_SCHEMA = `{
   "question": {
@@ -64,14 +61,9 @@ The question MUST reference one of their interests and be about a REAL, SPECIFIC
   ];
 }
 
-function buildSystemPrompt(
-  lastFormat: string | undefined,
-  isShortAnswer: boolean,
-  capCounts: Record<string, number>,
-  aiCount: number
-): string {
+function buildSystemPrompt(isShortAnswer: boolean): string {
   const shortHint = isShortAnswer
-    ? "\nThe student gave a very short answer. Switch to a 'scale' or 'choice' format this time."
+    ? "\nThe student gave a very short answer — consider using 'scale' or 'choice' format to make it easier."
     : "";
 
   return `${SYSTEM_GUARDRAILS}
@@ -79,12 +71,9 @@ function buildSystemPrompt(
 RULES:
 1. Ask about a SPECIFIC experience — not "how do you learn" but "tell me about a time when..."
 2. Reference something the student already said
-3. Each question must be DIFFERENT from previous ones
-4. If the student gave a short answer, SWITCH to scale or choice format.${shortHint}
+3. Each question should cover something new — don't repeat the same topic${shortHint}
 
 ${FORMAT_GUIDE}
-
-Last format used: "${lastFormat || "none"}" — do NOT use the same format twice in a row.
 
 READY: set "ready": true when you have enough info (around 4-6 questions, 1-2 answers per theme). This shows a "Finish" button.
 COMPLETE: set "complete": true only if you truly can't ask more or it's gone too long (8+ questions).
@@ -111,13 +100,10 @@ export function buildContinuationMessages(
     if (m.capability) capCounts[m.capability] = (capCounts[m.capability] || 0) + 1;
   }
 
-  const lastAiMsg = [...conversation].reverse().find((m) => m.role === "ai");
-  const lastFormat = lastAiMsg?.format;
-
   return [
     {
       role: "system",
-      content: buildSystemPrompt(lastFormat, isShortAnswer, capCounts, aiCount),
+      content: buildSystemPrompt(isShortAnswer),
     },
     {
       role: "user",
