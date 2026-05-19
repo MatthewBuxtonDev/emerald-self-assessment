@@ -8,14 +8,25 @@ const SYSTEM_GUARDRAILS = `You are a friendly mentor having a conversation about
 - Do not use clinical, diagnostic, or therapeutic language.
 - This is a conversation, not an interrogation.`;
 
-const CONCRETE_QUESTION_TYPES = [
-  "Tell me about a time when... (ask about a specific experience)",
-  "What do you think about... (ask for their opinion on something) How does that affect your learning?",
-  "Imagine you're [specific scenario related to their interest]. What would you do?",
-  "What's something you found tricky recently? How did you handle it?",
-  "You mentioned [interest]. How do you go about getting better at it?",
-  "When you work on a group project, what part do you usually take on?",
-];
+const QUESTIONS_ABOUT_FORMATS = `
+You can choose from THREE question formats. Pick whichever suits the moment:
+
+1. "open" — free text answer. Use when the student seems engaged and able to write a response.
+2. "scale" — a 5-point agreement scale. Use when the student seems unsure, gives short answers, or you want to make it easy for them. Always use these 5 labels:
+   ["Not at all like me", "A little like me", "Somewhat like me", "A lot like me", "Exactly like me"]
+3. "choice" — multiple choice with 3-4 options. Use when you want to give structure, or the student said "I don't know" last time.
+
+Rotate formats — don't use the same format twice in a row.`;
+
+const QUESTION_FORMAT_JSON = `
+For "scale" format:
+{ "id": "q_N", "text": "question text", "format": "scale", "options": [{ "label": "Not at all like me", "value": "1" }, ...], "capability": "..." }
+
+For "choice" format:
+{ "id": "q_N", "text": "question text", "format": "choice", "options": [{ "label": "Option A", "value": "a" }, ...], "capability": "..." }
+
+For "open" format:
+{ "id": "q_N", "text": "question text", "format": "open", "capability": "..." }`;
 
 export function buildFirstQuestionMessages(userInfo: UserInfo): {
   role: "system" | "user" | "assistant";
@@ -30,19 +41,15 @@ CRITICAL: Ask a VERY SPECIFIC, CONCRETE question — not abstract or vague.
 BAD example: "How do you approach learning?"
 GOOD example: "You said you're into soccer. When your team is learning a new drill, how do you figure out what to do?"
 
-Pick ONE of these question types:
-1. "Tell me about a time when..." — ask about a specific experience
-2. "You mentioned [interest]. How do you go about getting better at it?"
-3. "What's something you found tricky recently? How did you handle it?"
+${QUESTIONS_ABOUT_FORMATS}
+
+Pick ONE concrete question. The format can be "open", "scale", or "choice" — whichever you think this student will find easiest to answer on the first go.
+
+For "scale" questions, the text should be a statement they agree/disagree with (e.g. "When I'm stuck on something, I usually try a different approach").
 
 Return ONLY valid JSON:
 {
-  "question": {
-    "id": "q_1",
-    "text": "your concrete question here",
-    "format": "open",
-    "capability": "collaboration" | "metacognition" | "agency"
-  }
+  "question": ${QUESTION_FORMAT_JSON}
 }`,
     },
     {
@@ -56,7 +63,7 @@ Student:
 - Passions: ${userInfo.passions.join(", ") || "not specified"}
 - Self-description: ${userInfo.selfDescription || "not specified"}
 
-The question MUST reference one of their interests and be about a REAL, SPECIFIC situation they have experienced. Make it easy for them to answer.`,
+The question MUST reference one of their interests and be about a REAL, SPECIFIC situation they have experienced. Make it easy for them to answer. Pick the best format for this student.`,
     },
   ];
 }
@@ -80,6 +87,11 @@ export function buildContinuationMessages(
     if (m.capability) capCounts[m.capability] = (capCounts[m.capability] || 0) + 1;
   }
 
+  // Find which format was used last
+  const lastAiMsg = [...conversation].reverse().find((m) => m.role === "ai");
+  const lastFormat = lastAiMsg?.format;
+  const usedFormats = conversation.filter((m) => m.role === "ai").map((m) => m.format);
+
   return [
     {
       role: "system",
@@ -89,29 +101,23 @@ RULES FOR GOOD QUESTIONS:
 1. Ask about a SPECIFIC experience or situation — not "how do you learn" but "tell me about a time when..."
 2. Reference something the student already said to make it feel like a real conversation
 3. Each question must be DIFFERENT from previous ones — don't repeat the same structure
-4. If the student gave a short answer ("I don't know", "yes", "maybe", one word), ASK A DIFFERENT TYPE of question entirely. Pivot to a new topic. Don't push harder on the same subject.
+4. If the student gave a short answer ("I don't know", "yes", "maybe", one word), ASK A DIFFERENT FORMAT. For short answers, switch to a "scale" or "choice" format — they're easier to answer. Don't push harder on the same subject.
 
-Question types to rotate through (PICK A DIFFERENT ONE each time):
-- "Tell me about a time when..." (specific experience)
-- "What do you think about..." + "How does that affect your learning?"
-- "What's something you found tricky recently? How did you handle it?"
-- Scenario linked to their interest: "Imagine you're [situation], what would you do?"
-- "When you [activity], what part do you enjoy most?"
+${QUESTIONS_ABOUT_FORMATS}
 
-COMPLETION: Set "complete": true if ANY of these are true:
+Last format used: "${lastFormat || "none"}" — do NOT use the same format twice in a row.
+
+${QUESTION_FORMAT_JSON}
+
+COMPLETION: Set "complete": true if ANY:
 - You've asked at least 6 questions total
 - OR the student has given 2+ answers per theme
 - OR the student seems disengaged (short answers)
-- It's better to finish early than to drag on.
+- Better to finish early than drag on.
 
 Return JSON:
 {
-  "question": {
-    "id": "q_N",
-    "text": "your concrete question",
-    "format": "open",
-    "capability": "collaboration" | "metacognition" | "agency"
-  } | null,
+  "question": ${QUESTION_FORMAT_JSON.replace(/\n/g, "\n  ")} | null,
   "complete": true | false
 }`,
     },
@@ -124,12 +130,13 @@ ${conversationLog}
 Stats:
 - Questions asked so far: ${aiCount}
 - Student answers given: ${totalExchanges}
-- Answer last student gave: "${lastAnswer}"${isShortAnswer ? " (This was very short. Pivot to a different topic.)" : ""}
+- Answer last student gave: "${lastAnswer}"${isShortAnswer ? " (Very short — use a scale or choice format this time.)" : ""}
+- Last format used: "${lastFormat}"${usedFormats.length > 1 ? ` (Formats used: ${usedFormats.join(", ")})` : ""}
 - Working with Others covered: ${capCounts["collaboration"] || 0}x
 - Thinking about Learning covered: ${capCounts["metacognition"] || 0}x
 - Taking Action covered: ${capCounts["agency"] || 0}x
 
-Remember: ask about a SPECIFIC experience. If you have enough info, set "complete": true.`,
+Remember: if the student gave a short answer, switch to scale or choice format. If you have enough info, set "complete": true.`,
     },
   ];
 }

@@ -78,6 +78,7 @@ export default function AssessmentPage() {
         text: data.question.text,
         format: data.question.format,
         capability: data.question.capability,
+        options: data.question.options,
       });
 
       setStep("assessment");
@@ -122,6 +123,7 @@ export default function AssessmentPage() {
           text: data.question.text,
           format: data.question.format,
           capability: data.question.capability,
+          options: data.question.options,
         });
       }
     } catch (err: any) {
