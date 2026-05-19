@@ -179,6 +179,11 @@ export function buildReportMessages(
     .map((m) => `${m.role === "ai" ? "Mentor" : "Student"}: ${m.text}`)
     .join("\n");
 
+  const interestsText = [userInfo.interests, userInfo.passions]
+    .flat()
+    .filter(Boolean)
+    .join(", ") || "not specified";
+
   return [
     {
       role: "system",
@@ -197,18 +202,19 @@ The profile should assess the student across these 9 Learner Attributes:
 
 RULES (critical):
 - NO scores, NO levels, NO rubric language
-- Write in second person ("you")
+- Write in second person ("you") for student sections
 - Reference specific things the student said to ground each observation
 - Every section should identify a strength AND suggest an area to build on
 - Every next step must be specific, positive, and actionable
 - The challenge should be one concrete thing to try this week
+- teacherSuggestions provides practical classroom strategies per attribute — write in third person about "this student"
 
 Return ONLY valid JSON:
 {
   "profile": {
     "studentName": "${userInfo.name}",
     "dateGenerated": "${new Date().toISOString().split("T")[0]}",
-    "narrative": "3-4 sentence warm summary of how they learn, touching on key attributes",
+    "narrative": "5-6 sentence warm summary covering who they are, key attributes, and how they learn best",
     "themes": [
       {
         "name": "Analytical Thinking" | "Creativity" | "Curiosity" | "Mindful Agency" | "Motivation" | "Resilience" | "Community" | "Humanitarianism" | "Operational Action",
@@ -217,27 +223,66 @@ Return ONLY valid JSON:
       }
     ],
     "strengths": [
-      { "title": "Short strength label", "narrative": "2-3 sentences referencing what they shared" }
+      { "title": "Short strength label", "narrative": "3-4 sentences referencing what they shared and how it shows up in their learning" }
     ],
-    "nextSteps": ["specific suggestion 1", "specific suggestion 2", "specific suggestion 3"],
-    "interestsConnection": "How their passions connect to their learning journey across these attributes",
-    "challenge": "One specific thing to try this week that ties together multiple attributes"
+    "nextSteps": ["specific suggestion 1", "specific suggestion 2", "specific suggestion 3", "specific suggestion 4", "specific suggestion 5"],
+    "interestsConnection": "How their passions connect to their learning journey across these attributes, with 2-3 specific examples from the conversation",
+    "challenge": "One specific thing to try this week that ties together multiple attributes",
+    "teacherSuggestions": [
+      {
+        "attribute": "Analytical Thinking",
+        "strategies": ["2-3 practical classroom strategies this student's teacher could use to support their growth in this area"]
+      },
+      {
+        "attribute": "Creativity",
+        "strategies": ["2-3 practical classroom strategies"]
+      },
+      {
+        "attribute": "Curiosity",
+        "strategies": ["2-3 practical classroom strategies"]
+      },
+      {
+        "attribute": "Mindful Agency",
+        "strategies": ["2-3 practical classroom strategies"]
+      },
+      {
+        "attribute": "Motivation",
+        "strategies": ["2-3 practical classroom strategies"]
+      },
+      {
+        "attribute": "Resilience",
+        "strategies": ["2-3 practical classroom strategies"]
+      },
+      {
+        "attribute": "Community",
+        "strategies": ["2-3 practical classroom strategies"]
+      },
+      {
+        "attribute": "Humanitarianism",
+        "strategies": ["2-3 practical classroom strategies"]
+      },
+      {
+        "attribute": "Operational Action",
+        "strategies": ["2-3 practical classroom strategies"]
+      }
+    ]
   }
 }`,
     },
     {
       role: "user",
-      content: `Write a detailed Learner Profile for this student based on their full conversation.
+      content: `Write a comprehensive, detailed Learner Profile for this student based on their full conversation.
 
 Student: ${userInfo.name}
 Year: ${userInfo.yearLevel}
-Interests: ${userInfo.interests.join(", ") || "not specified"}
-Passions: ${userInfo.passions.join(", ") || "not specified"}
+Year level: ${userInfo.yearLevel}
+Interests and passions: ${interestsText}
+Self-description: ${userInfo.selfDescription || "not specified"}
 
 Full conversation:
 ${conversationLog}
 
-Cover as many of the 9 Learner Attributes as the conversation allows. Reference specific things they said.`,
+Cover every attribute the conversation gives insight into. For each, explain what the student's answers reveal about their strength and growth area. Write teacherSuggestions for ALL 9 attributes — even if coverage was light, suggest general strategies appropriate for their year level. Make strategies practical and specific (e.g. "Provide sentence starters for peer feedback" not just "Encourage collaboration").`,
     },
   ];
 }

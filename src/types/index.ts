@@ -59,6 +59,15 @@ export const LearnerProfileSchema = z.object({
   nextSteps: z.array(z.string()),
   interestsConnection: z.string(),
   challenge: z.string(),
+  teacherSuggestions: z
+    .array(
+      z.object({
+        attribute: z.string(),
+        strategies: z.array(z.string()),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 export type UserInfo = z.infer<typeof UserInfoSchema>;

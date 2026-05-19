@@ -114,6 +114,7 @@ export default function ReportPage() {
   }
 
   const profile = state.profile;
+  const [showTeacher, setShowTeacher] = useState(false);
 
   return (
     <div className="flex-1 flex flex-col items-center px-4 sm:px-6 py-8 sm:py-12">
@@ -229,9 +230,44 @@ export default function ReportPage() {
               {profile.challenge}
             </p>
           </div>
-        </div>
+          </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          {profile.teacherSuggestions && profile.teacherSuggestions.length > 0 && (
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowTeacher(!showTeacher)}
+                className="w-full flex items-center justify-between p-4 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-left"
+              >
+                <span className="text-sm sm:text-base font-semibold text-zinc-900">
+                  For Teachers &mdash; Classroom Strategies
+                </span>
+                <span className="text-zinc-400 text-lg">{showTeacher ? "\u2212" : "+"}</span>
+              </button>
+              {showTeacher && (
+                <div className="space-y-4 p-4 sm:p-5 rounded-xl border border-zinc-200 bg-zinc-50">
+                  {profile.teacherSuggestions.map((s, i) => (
+                    <div key={i}>
+                      <h3 className="text-sm font-semibold text-zinc-800 mb-1.5">
+                        {s.attribute}
+                      </h3>
+                      <ul className="space-y-1">
+                        {s.strategies.map((strategy, j) => (
+                          <li
+                            key={j}
+                            className="text-sm text-zinc-600 leading-relaxed pl-3 border-l-2 border-blue-200"
+                          >
+                            {strategy}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={downloadPDF}
             disabled={pdfLoading}
