@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAssessment } from "@/providers/assessment-provider";
 import type { UserInfo } from "@/types";
 
-const YEAR_LEVELS = [7, 8, 9, 10];
+const YEAR_LEVELS = [7, 8, 9, 10, 11, 12];
 
 export default function AboutYouPage() {
   const router = useRouter();

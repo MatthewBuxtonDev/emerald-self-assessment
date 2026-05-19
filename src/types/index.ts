@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const UserInfoSchema = z.object({
   name: z.string().min(1, "Name is required").max(50),
-  yearLevel: z.number().int().min(7).max(10),
+  yearLevel: z.number().int().min(7).max(12),
   interests: z.array(z.string()).max(5).default([]),
   passions: z.array(z.string()).max(5).default([]),
   selfDescription: z.string().max(300).default(""),
