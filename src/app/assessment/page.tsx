@@ -185,17 +185,19 @@ export default function AssessmentPage() {
                 const count = state.conversation.filter(
                   (m) => m.role === "ai" && m.capability === code
                 ).length;
-                const covered = count >= 2;
+                const pct = Math.min(Math.round((count / 10) * 100), 100);
                 return (
                   <span
                     key={code}
                     className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
-                      covered
+                      pct >= 100
                         ? "bg-green-50 border-green-200 text-green-700"
-                        : "bg-zinc-50 border-zinc-200 text-zinc-500"
+                        : pct >= 50
+                          ? "bg-amber-50 border-amber-200 text-amber-700"
+                          : "bg-zinc-50 border-zinc-200 text-zinc-500"
                     }`}
                   >
-                    {CAP_NAMES[code]}
+                    {CAP_NAMES[code]} {count > 0 ? `(${count})` : ""}
                   </span>
                 );
               }

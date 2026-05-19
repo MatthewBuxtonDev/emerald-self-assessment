@@ -33,6 +33,16 @@ export const LearnerProfileSchema = z.object({
   studentName: z.string(),
   dateGenerated: z.string(),
   narrative: z.string(),
+  themes: z
+    .array(
+      z.object({
+        name: z.enum(["Working with Others", "Thinking about Learning", "Taking Action"]),
+        strength: z.string(),
+        growth: z.string(),
+      })
+    )
+    .optional()
+    .default([]),
   strengths: z.array(
     z.object({ title: z.string(), narrative: z.string() })
   ),

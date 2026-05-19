@@ -161,6 +161,39 @@ export default function ReportPage() {
             </div>
           </div>
 
+          {profile.themes && profile.themes.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg sm:text-xl font-semibold text-zinc-900">
+                How You Learn
+              </h2>
+              <div className="space-y-3">
+                {profile.themes.map((t, i) => (
+                  <div
+                    key={i}
+                    className="p-4 sm:p-5 rounded-xl border border-zinc-200 space-y-2"
+                  >
+                    <h3 className="font-semibold text-blue-700 text-sm sm:text-base flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      {t.name}
+                    </h3>
+                    <div className="space-y-1">
+                      <p className="text-sm text-zinc-500 font-medium">Strength</p>
+                      <p className="text-sm sm:text-base text-zinc-700 leading-relaxed">
+                        {t.strength}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-zinc-500 font-medium">Area to build</p>
+                      <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+                        {t.growth}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             <h2 className="text-lg sm:text-xl font-semibold text-zinc-900">
               Ideas for Your Next Steps

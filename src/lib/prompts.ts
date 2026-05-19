@@ -15,6 +15,14 @@ You have three question formats available — use whichever best fits this stude
 - "scale" — 5-point agreement ("Not at all like me" → "Exactly like me"), good when they seem unsure or are giving short answers
 - "choice" — multiple choice with 3-4 options, good for giving structure or when they said "I don't know"`;
 
+const THEME_GUIDE = `Probe each theme deeply from multiple angles:
+
+1. Working with Others — explore: communication, collaboration, conflict resolution, perspective-taking, leadership, teamwork
+2. Thinking about Learning — explore: reflection, goal-setting, self-awareness, growth mindset, seeking and using feedback
+3. Taking Action — explore: initiative, persistence, adaptability, problem-solving, planning, organisation
+
+For each theme, ask about DIFFERENT aspects over multiple questions. Don't just scratch the surface — explore how they handle different situations within each theme.`;
+
 const JSON_SCHEMA = `{
   "question": {
     "id": "q_N",
@@ -42,6 +50,10 @@ GOOD example: "You said you're into soccer. When your team is learning a new dri
 
 ${FORMAT_GUIDE}
 
+${THEME_GUIDE}
+
+You'll be asking many questions across all three themes, so start with one area and branch out from there.
+
 Return ONLY valid JSON:
 ${JSON_SCHEMA}`,
     },
@@ -61,22 +73,33 @@ The question MUST reference one of their interests and be about a REAL, SPECIFIC
   ];
 }
 
-function buildSystemPrompt(isShortAnswer: boolean): string {
+function buildSystemPrompt(isShortAnswer: boolean, aiCount: number): string {
   const shortHint = isShortAnswer
     ? "\nThe student gave a very short answer — consider using 'scale' or 'choice' format to make it easier."
     : "";
+
+  const progressHint =
+    aiCount < 10
+      ? "You're still early in the conversation. Keep probing different aspects."
+      : aiCount < 20
+        ? "You're building a picture. Make sure each theme has coverage across multiple angles."
+        : "You should have solid coverage by now. Only signal ready if you've explored each theme thoroughly across at least 3-4 different angles each.";
 
   return `${SYSTEM_GUARDRAILS}
 
 RULES:
 1. Ask about a SPECIFIC experience — not "how do you learn" but "tell me about a time when..."
-2. Reference something the student already said
-3. Each question should cover something new — don't repeat the same topic${shortHint}
+2. Reference something the student already said to make it conversational
+3. Each question should explore a new angle — don't repeat the same aspect${shortHint}
 
 ${FORMAT_GUIDE}
 
-READY: set "ready": true when you have enough info (around 4-6 questions, 1-2 answers per theme). This shows a "Finish" button.
-COMPLETE: set "complete": true only if you truly can't ask more or it's gone too long (8+ questions).
+${THEME_GUIDE}
+
+READY: set "ready": true ONLY when you have built a holistic picture — aim for 25-35+ questions exploring multiple angles of each theme. Only signal ready when you genuinely have enough depth across all three themes.
+COMPLETE: set "complete": true only if the conversation has gone very long (40+ questions) or the student is clearly disengaged.
+
+Progress: ${aiCount} questions asked so far. ${progressHint}
 
 Return ONLY valid JSON:
 ${JSON_SCHEMA}`;
@@ -103,7 +126,7 @@ export function buildContinuationMessages(
   return [
     {
       role: "system",
-      content: buildSystemPrompt(isShortAnswer),
+      content: buildSystemPrompt(isShortAnswer, aiCount),
     },
     {
       role: "user",
@@ -118,7 +141,7 @@ Stats:
 - Thinking about Learning: ${capCounts["metacognition"] || 0}x
 - Taking Action: ${capCounts["agency"] || 0}x
 
-If you have enough info (around 4-6 questions), set "ready": true. Only set "complete": true if you cannot ask anything else useful.`,
+If you have enough depth across all themes (aim for 25-35+ questions total, exploring multiple angles per theme), set "ready": true. Only set "complete": true if the conversation is very long (40+) or the student is disengaged.`,
     },
   ];
 }
@@ -135,40 +158,56 @@ export function buildReportMessages(
   return [
     {
       role: "system",
-      content: `You are a mentor writing a constructive Learner Profile for a student. This is NOT a test report.
+      content: `You are a mentor writing a detailed, holistic Learner Profile for a student. This is NOT a test report.
+
+The profile should cover all three learning themes in depth:
+1. Working with Others — how they collaborate, communicate, handle different perspectives, resolve conflicts
+2. Thinking about Learning — how they reflect, set goals, seek feedback, understand themselves as learners
+3. Taking Action — their initiative, persistence, adaptability, problem-solving approach
 
 RULES (critical):
 - NO scores, NO levels, NO rubric language
 - Write in second person ("you")
-- Reference specific things the student said
+- Reference specific things the student said to ground each observation
+- Every section should identify a strength AND suggest an area to build on
 - Every next step must be specific, positive, and actionable
+- The challenge should be one concrete thing to try this week
 
 Return ONLY valid JSON:
 {
   "profile": {
     "studentName": "${userInfo.name}",
     "dateGenerated": "${new Date().toISOString().split("T")[0]}",
-    "narrative": "2-3 sentence warm summary of how they learn",
+    "narrative": "3-4 sentence warm summary of how they learn, covering all three themes",
+    "themes": [
+      {
+        "name": "Working with Others" | "Thinking about Learning" | "Taking Action",
+        "strength": "What they do well in this area, referencing something they said",
+        "growth": "A specific area to develop within this theme"
+      }
+    ],
     "strengths": [
-      { "title": "Short label", "narrative": "2-3 sentences referencing what they shared" }
+      { "title": "Short strength label", "narrative": "2-3 sentences referencing what they shared" }
     ],
     "nextSteps": ["specific suggestion 1", "specific suggestion 2", "specific suggestion 3"],
-    "interestsConnection": "How their passions connect to their learning journey",
-    "challenge": "One specific thing to try this week"
+    "interestsConnection": "How their passions connect to their learning journey across all themes",
+    "challenge": "One specific thing to try this week that ties together multiple themes"
   }
 }`,
     },
     {
       role: "user",
-      content: `Write a Learner Profile for this student.
+      content: `Write a detailed, holistic Learner Profile for this student based on their full conversation.
 
 Student: ${userInfo.name}
 Year: ${userInfo.yearLevel}
 Interests: ${userInfo.interests.join(", ") || "not specified"}
 Passions: ${userInfo.passions.join(", ") || "not specified"}
 
-Conversation:
-${conversationLog}`,
+Full conversation:
+${conversationLog}
+
+Cover all three themes in depth. Reference specific things they said.`,
     },
   ];
 }
