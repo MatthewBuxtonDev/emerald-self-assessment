@@ -128,8 +128,11 @@ export default function AboutYouPage() {
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-              What are you interested in?
+              What do you enjoy doing?
             </label>
+            <p className="text-xs text-zinc-500 mb-2">
+              Your interests — hobbies, subjects, sports, games, or anything you find interesting.
+            </p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -147,7 +150,7 @@ export default function AboutYouPage() {
                   }
                 }}
                 className="flex-1 h-11 sm:h-12 px-3 sm:px-4 rounded-xl border border-zinc-300 bg-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                placeholder="e.g. soccer, art, gaming"
+                placeholder="e.g. soccer, art, gaming, reading"
                 disabled={interests.length >= 5}
               />
               <button
@@ -193,8 +196,11 @@ export default function AboutYouPage() {
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-              What are you passionate about?
+              What matters to you?
             </label>
+            <p className="text-xs text-zinc-500 mb-2">
+              Your passions — causes, values, or big things you care about. These are deeper than interests.
+            </p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -212,7 +218,7 @@ export default function AboutYouPage() {
                   }
                 }}
                 className="flex-1 h-11 sm:h-12 px-3 sm:px-4 rounded-xl border border-zinc-300 bg-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                placeholder="e.g. environment, music, coding"
+                placeholder="e.g. the environment, helping others, fairness"
                 disabled={passions.length >= 5}
               />
               <button
