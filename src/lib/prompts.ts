@@ -8,6 +8,15 @@ const SYSTEM_GUARDRAILS = `You are a friendly mentor having a conversation about
 - Do not use clinical, diagnostic, or therapeutic language.
 - This is a conversation, not an interrogation.`;
 
+const CONCRETE_QUESTION_TYPES = [
+  "Tell me about a time when... (ask about a specific experience)",
+  "What do you think about... (ask for their opinion on something) How does that affect your learning?",
+  "Imagine you're [specific scenario related to their interest]. What would you do?",
+  "What's something you found tricky recently? How did you handle it?",
+  "You mentioned [interest]. How do you go about getting better at it?",
+  "When you work on a group project, what part do you usually take on?",
+];
+
 export function buildFirstQuestionMessages(userInfo: UserInfo): {
   role: "system" | "user" | "assistant";
   content: string;
@@ -17,11 +26,20 @@ export function buildFirstQuestionMessages(userInfo: UserInfo): {
       role: "system",
       content: `${SYSTEM_GUARDRAILS}
 
-Return ONLY valid JSON in the following format, no extra text:
+CRITICAL: Ask a VERY SPECIFIC, CONCRETE question — not abstract or vague.
+BAD example: "How do you approach learning?"
+GOOD example: "You said you're into soccer. When your team is learning a new drill, how do you figure out what to do?"
+
+Pick ONE of these question types:
+1. "Tell me about a time when..." — ask about a specific experience
+2. "You mentioned [interest]. How do you go about getting better at it?"
+3. "What's something you found tricky recently? How did you handle it?"
+
+Return ONLY valid JSON:
 {
   "question": {
     "id": "q_1",
-    "text": "the question text",
+    "text": "your concrete question here",
     "format": "open",
     "capability": "collaboration" | "metacognition" | "agency"
   }
@@ -29,20 +47,16 @@ Return ONLY valid JSON in the following format, no extra text:
     },
     {
       role: "user",
-      content: `Generate the first question to start a conversation about learning with this student.
+      content: `Generate the first question for this student.
 
-Student profile:
+Student:
 - Name: ${userInfo.name}
 - Year: ${userInfo.yearLevel}
 - Interests: ${userInfo.interests.join(", ") || "not specified"}
 - Passions: ${userInfo.passions.join(", ") || "not specified"}
 - Self-description: ${userInfo.selfDescription || "not specified"}
 
-The question should:
-- Reference one of their interests or passions to build rapport
-- Be open-ended and encourage reflection
-- Target one of three learning themes: Working with Others (collaboration), Thinking about Learning (reflection), or Taking Action (initiative)
-- Feel like a curious mentor asking, not a test`,
+The question MUST reference one of their interests and be about a REAL, SPECIFIC situation they have experienced. Make it easy for them to answer.`,
     },
   ];
 }
@@ -51,14 +65,19 @@ export function buildContinuationMessages(
   conversation: Message[]
 ): { role: "system" | "user" | "assistant"; content: string }[] {
   const conversationLog = conversation
-    .map((m) => `${m.role === "ai" ? "Mentor" : "Student"}: ${m.text}`)
-    .join("\n");
+    .map((m) => `Mentor: ${m.text}`)
+    .join("\n\n");
+
+  const lastAnswer = conversation
+    .filter((m) => m.role === "user")
+    .pop()?.text || "";
+  const isShortAnswer = lastAnswer.split(" ").length < 5;
+  const aiCount = conversation.filter((m) => m.role === "ai").length;
+  const totalExchanges = conversation.filter((m) => m.role === "user").length;
 
   const capCounts: Record<string, number> = {};
   for (const m of conversation) {
-    if (m.capability) {
-      capCounts[m.capability] = (capCounts[m.capability] || 0) + 1;
-    }
+    if (m.capability) capCounts[m.capability] = (capCounts[m.capability] || 0) + 1;
   }
 
   return [
@@ -66,36 +85,51 @@ export function buildContinuationMessages(
       role: "system",
       content: `${SYSTEM_GUARDRAILS}
 
-Return ONLY valid JSON in the following format, no extra text:
+RULES FOR GOOD QUESTIONS:
+1. Ask about a SPECIFIC experience or situation — not "how do you learn" but "tell me about a time when..."
+2. Reference something the student already said to make it feel like a real conversation
+3. Each question must be DIFFERENT from previous ones — don't repeat the same structure
+4. If the student gave a short answer ("I don't know", "yes", "maybe", one word), ASK A DIFFERENT TYPE of question entirely. Pivot to a new topic. Don't push harder on the same subject.
+
+Question types to rotate through (PICK A DIFFERENT ONE each time):
+- "Tell me about a time when..." (specific experience)
+- "What do you think about..." + "How does that affect your learning?"
+- "What's something you found tricky recently? How did you handle it?"
+- Scenario linked to their interest: "Imagine you're [situation], what would you do?"
+- "When you [activity], what part do you enjoy most?"
+
+COMPLETION: Set "complete": true if ANY of these are true:
+- You've asked at least 6 questions total
+- OR the student has given 2+ answers per theme
+- OR the student seems disengaged (short answers)
+- It's better to finish early than to drag on.
+
+Return JSON:
 {
   "question": {
     "id": "q_N",
-    "text": "the question text",
+    "text": "your concrete question",
     "format": "open",
     "capability": "collaboration" | "metacognition" | "agency"
   } | null,
-  "complete": false | true
+  "complete": true | false
 }`,
     },
     {
       role: "user",
-      content: `Here is the conversation so far between a mentor and a student:
+      content: `Here's the conversation so far. Keep your next question concrete and different from what came before.
 
 ${conversationLog}
 
-Conversation depth per theme:
-- Working with Others: ${capCounts["collaboration"] || 0} exchanges
-- Thinking about Learning: ${capCounts["metacognition"] || 0} exchanges
-- Taking Action: ${capCounts["agency"] || 0} exchanges
+Stats:
+- Questions asked so far: ${aiCount}
+- Student answers given: ${totalExchanges}
+- Answer last student gave: "${lastAnswer}"${isShortAnswer ? " (This was very short. Pivot to a different topic.)" : ""}
+- Working with Others covered: ${capCounts["collaboration"] || 0}x
+- Thinking about Learning covered: ${capCounts["metacognition"] || 0}x
+- Taking Action covered: ${capCounts["agency"] || 0}x
 
-Generate the next question. Choose a theme that needs more coverage.
-The question should:
-- Build on what the student just said
-- Feel like a natural continuation
-- Be personalised to the student's interests and previous answers
-- Use whatever format suits this moment (open-ended, scenario, reflection)
-
-If each theme has at least 3 substantive exchanges OR total exchanges reach 15, set "complete": true.`,
+Remember: ask about a SPECIFIC experience. If you have enough info, set "complete": true.`,
     },
   ];
 }
@@ -105,6 +139,7 @@ export function buildReportMessages(
   conversation: Message[]
 ): { role: "system" | "user" | "assistant"; content: string }[] {
   const conversationLog = conversation
+    .filter((m) => m.text)
     .map((m) => `${m.role === "ai" ? "Mentor" : "Student"}: ${m.text}`)
     .join("\n");
 
@@ -114,22 +149,19 @@ export function buildReportMessages(
       content: `You are a mentor writing a constructive Learner Profile for a student. This is NOT a test report.
 
 RULES (critical):
-- NO scores, NO levels, NO rubric language (do not use: beginning, developing, proficient, advanced, score, rating, level)
-- NO clinical or diagnostic language
+- NO scores, NO levels, NO rubric language
 - Write in second person ("you")
-- Reference specific things the student said to show you listened
-- Every strength should describe what they do well and why it matters
-- Every next step should be specific, positive, and actionable
-- The challenge should be one concrete thing to try in the coming days
+- Reference specific things the student said
+- Every next step must be specific, positive, and actionable
 
-Return ONLY valid JSON in the following format, no extra text:
+Return ONLY valid JSON:
 {
   "profile": {
     "studentName": "${userInfo.name}",
     "dateGenerated": "${new Date().toISOString().split("T")[0]}",
     "narrative": "2-3 sentence warm summary of how they learn",
     "strengths": [
-      { "title": "Short strength label", "narrative": "2-3 sentence explanation referencing what they shared" }
+      { "title": "Short label", "narrative": "2-3 sentences referencing what they shared" }
     ],
     "nextSteps": ["specific suggestion 1", "specific suggestion 2", "specific suggestion 3"],
     "interestsConnection": "How their passions connect to their learning journey",
@@ -139,14 +171,14 @@ Return ONLY valid JSON in the following format, no extra text:
     },
     {
       role: "user",
-      content: `Write a Learner Profile for this student based on their conversation.
+      content: `Write a Learner Profile for this student.
 
 Student: ${userInfo.name}
 Year: ${userInfo.yearLevel}
 Interests: ${userInfo.interests.join(", ") || "not specified"}
 Passions: ${userInfo.passions.join(", ") || "not specified"}
 
-Full conversation:
+Conversation:
 ${conversationLog}`,
     },
   ];

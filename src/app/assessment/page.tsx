@@ -78,7 +78,6 @@ export default function AssessmentPage() {
         text: data.question.text,
         format: data.question.format,
         capability: data.question.capability,
-        options: data.question.options,
       });
 
       setStep("assessment");
@@ -91,17 +90,15 @@ export default function AssessmentPage() {
     }
   }
 
-  async function handleSubmitAnswer(text?: string) {
-    const answer = (text || input).trim();
-    if (!answer || loading) return;
-
-    setInput("");
+  async function getNextQuestion(immediateAnswer?: string) {
+    setLoading(true);
     setErrorMsg(null);
+
+    const answer = immediateAnswer || input.trim();
 
     const userMsg = { id: generateId(), role: "user" as const, text: answer };
     addMessage(userMsg);
-
-    setLoading(true);
+    setInput("");
 
     try {
       const res = await fetch("/api/continue-assessment", {
@@ -117,10 +114,7 @@ export default function AssessmentPage() {
       const data = await res.json();
 
       if (data.complete || !data.question) {
-        setComplete(true);
-        setStep("generating");
-        // Navigate to report — state is persisted via sessionStorage
-        router.push("/report");
+        finishAssessment();
       } else {
         addMessage({
           id: data.question.id,
@@ -128,7 +122,6 @@ export default function AssessmentPage() {
           text: data.question.text,
           format: data.question.format,
           capability: data.question.capability,
-          options: data.question.options,
         });
       }
     } catch (err: any) {
@@ -138,6 +131,19 @@ export default function AssessmentPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function finishAssessment() {
+    setComplete(true);
+    setStep("generating");
+    router.push("/report");
+  }
+
+  function handleSubmitAnswer(text?: string) {
+    if (loading) return;
+    const answer = (text || input).trim();
+    if (!answer) return;
+    getNextQuestion(answer);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -152,6 +158,7 @@ export default function AssessmentPage() {
   const lastAiMsg = [...state.conversation].reverse().find((m) => m.role === "ai");
   const hasOptions = lastAiMsg?.options && lastAiMsg.options.length > 0;
   const questionCount = state.conversation.filter((m) => m.role === "ai").length;
+  const canFinishEarly = questionCount >= 3;
 
   return (
     <div className="flex-1 flex flex-col h-screen max-h-dvh">
@@ -259,7 +266,7 @@ export default function AssessmentPage() {
       </div>
 
       <div className="flex-shrink-0 border-t border-zinc-200 bg-white px-4 sm:px-6 py-3 sm:py-4">
-        <div className="max-w-3xl mx-auto w-full">
+        <div className="max-w-3xl mx-auto w-full space-y-3">
           {hasOptions ? (
             <div className="flex flex-wrap gap-2 justify-center">
               {lastAiMsg!.options!.map((opt) => (
@@ -267,7 +274,7 @@ export default function AssessmentPage() {
                   key={opt.value}
                   onClick={() => handleSubmitAnswer(opt.label)}
                   disabled={loading}
-                  className="px-4 sm:px-5 py-2.5 rounded-full border border-zinc-300 bg-white text-sm text-zinc-700 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 disabled:opacity-40 transition-colors font-medium"
+                  className="px-4 sm:px-5 py-2.5 rounded-full border border-zinc-300 bg-white text-sm text-zinc-700 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 disabled:opacity-40 transition-colors font-medium touch-manipulation"
                 >
                   {opt.label}
                 </button>
@@ -288,9 +295,20 @@ export default function AssessmentPage() {
               <button
                 onClick={() => handleSubmitAnswer()}
                 disabled={!input.trim() || loading}
-                className="flex-shrink-0 h-11 sm:h-12 px-5 sm:px-6 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 transition-colors shadow-sm"
+                className="flex-shrink-0 h-11 sm:h-12 px-5 sm:px-6 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 transition-colors shadow-sm touch-manipulation"
               >
                 Send
+              </button>
+            </div>
+          )}
+
+          {canFinishEarly && !loading && (
+            <div className="text-center">
+              <button
+                onClick={finishAssessment}
+                className="text-xs text-zinc-400 hover:text-zinc-600 underline underline-offset-2 transition-colors"
+              >
+                I&apos;m done — show me my profile
               </button>
             </div>
           )}
