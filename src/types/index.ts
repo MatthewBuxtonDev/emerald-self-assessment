@@ -86,5 +86,7 @@ export interface AppState {
 
 export interface ContinueResponse {
   question: Question | null;
+  response?: string | null;
+  ready?: boolean;
   complete: boolean;
 }

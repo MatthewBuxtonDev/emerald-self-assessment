@@ -4,30 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAssessment } from "@/providers/assessment-provider";
 import { generateId } from "@/lib/utils";
-
-const CAP_NAMES: Record<string, string> = {
-  "analytical-thinking": "Analytical",
-  creativity: "Creativity",
-  curiosity: "Curiosity",
-  "mindful-agency": "Mindful",
-  motivation: "Motivation",
-  resilience: "Resilience",
-  community: "Community",
-  humanitarianism: "Humanitarian",
-  "operational-action": "Operational",
-};
-
-const CAP_SLUGS = [
-  "analytical-thinking",
-  "creativity",
-  "curiosity",
-  "mindful-agency",
-  "motivation",
-  "resilience",
-  "community",
-  "humanitarianism",
-  "operational-action",
-] as const;
+import type { Message } from "@/types";
 
 export default function AssessmentPage() {
   const router = useRouter();
@@ -40,6 +17,10 @@ export default function AssessmentPage() {
   const [initialised, setInitialised] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [canFinish, setCanFinish] = useState(false);
+
+  const [contextualiseId, setContextualiseId] = useState<string | null>(null);
+  const [contextInput, setContextInput] = useState("");
+  const [assistingLoading, setAssistingLoading] = useState(false);
 
   useEffect(() => {
     if (!state.userInfo) {
@@ -89,16 +70,26 @@ export default function AssessmentPage() {
       if (!res.ok) throw new Error("Something went wrong. Please try again.");
 
       const data = await res.json();
-      if (!data.question) throw new Error("Received an empty response. Please try again.");
+      if (!data.question && !data.response) throw new Error("Received an empty response. Please try again.");
 
-      addMessage({
-        id: data.question.id,
-        role: "ai",
-        text: data.question.text,
-        format: data.question.format,
-        capability: data.question.capability,
-        options: data.question.options,
-      });
+      if (data.response) {
+        addMessage({
+          id: generateId(),
+          role: "ai",
+          text: data.response,
+        });
+      }
+
+      if (data.question) {
+        addMessage({
+          id: data.question.id,
+          role: "ai",
+          text: data.question.text,
+          format: data.question.format,
+          capability: data.question.capability,
+          options: data.question.options,
+        });
+      }
 
       setStep("assessment");
     } catch (err: any) {
@@ -135,9 +126,20 @@ export default function AssessmentPage() {
 
       if (data.ready) setCanFinish(true);
 
-      if (data.complete || !data.question) {
+      if (data.complete) {
         finishAssessment();
-      } else {
+        return;
+      }
+
+      if (data.response) {
+        addMessage({
+          id: generateId(),
+          role: "ai",
+          text: data.response,
+        });
+      }
+
+      if (data.question) {
         addMessage({
           id: data.question.id,
           role: "ai",
@@ -176,11 +178,68 @@ export default function AssessmentPage() {
     }
   }
 
+  async function handleExplain(msg: Message) {
+    setAssistingLoading(true);
+    try {
+      const res = await fetch("/api/assist-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "explain",
+          question: { text: msg.text, capability: msg.capability },
+          userInfo: state.userInfo,
+          conversation: state.conversation,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to get explanation");
+      const data = await res.json();
+      addMessage({ id: generateId(), role: "ai", text: data.response });
+    } catch {
+      setErrorMsg("Couldn't get an explanation. Please try again.");
+    } finally {
+      setAssistingLoading(false);
+    }
+  }
+
+  async function handleContextualise(msg: Message) {
+    if (!contextInput.trim()) return;
+    setAssistingLoading(true);
+    try {
+      const res = await fetch("/api/assist-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "contextualise",
+          context: contextInput.trim(),
+          question: { text: msg.text, capability: msg.capability },
+          userInfo: state.userInfo,
+          conversation: state.conversation,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to rephrase");
+      const data = await res.json();
+      addMessage({
+        id: generateId(),
+        role: "ai",
+        text: data.response,
+        capability: msg.capability,
+        format: msg.format,
+        options: msg.options,
+      });
+    } catch {
+      setErrorMsg("Couldn't rephrase the question. Please try again.");
+    } finally {
+      setAssistingLoading(false);
+      setContextualiseId(null);
+      setContextInput("");
+    }
+  }
+
   if (!initialised) return null;
 
-  const lastAiMsg = [...state.conversation].reverse().find((m) => m.role === "ai");
-  const hasOptions = lastAiMsg?.options && lastAiMsg.options.length > 0;
-  const questionCount = state.conversation.filter((m) => m.role === "ai").length;
+  const lastQuestion = [...state.conversation].reverse().find((m) => m.role === "ai" && m.capability);
+  const hasOptions = lastQuestion?.options && lastQuestion.options.length > 0;
+  const questionCount = state.conversation.filter((m) => m.role === "ai" && m.capability).length;
 
   return (
     <div className="flex-1 flex flex-col h-screen max-h-dvh">
@@ -196,46 +255,6 @@ export default function AssessmentPage() {
             <span className="text-xs text-zinc-500 font-medium">
               {questionCount} question{questionCount !== 1 ? "s" : ""}
             </span>
-          </div>
-          <div className="flex flex-wrap gap-1 justify-center">
-            {(() => {
-              const covered = CAP_SLUGS.filter((slug) =>
-                state.conversation.filter(
-                  (m) => m.role === "ai" && m.capability === slug
-                ).length > 0
-              ).length;
-              return (
-                <span
-                  className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
-                    covered >= 7
-                      ? "bg-green-50 border-green-200 text-green-700"
-                      : covered >= 4
-                        ? "bg-amber-50 border-amber-200 text-amber-700"
-                        : "bg-zinc-50 border-zinc-200 text-zinc-500"
-                  }`}
-                >
-                  {covered}/{CAP_SLUGS.length} attributes
-                </span>
-              );
-            })()}
-            {CAP_SLUGS.map((slug) => {
-              const count = state.conversation.filter(
-                (m) => m.role === "ai" && m.capability === slug
-              ).length;
-              if (count === 0) return null;
-              return (
-                <span
-                  key={slug}
-                  className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                    count >= 2
-                      ? "bg-green-50 border-green-200 text-green-700"
-                      : "bg-blue-50 border-blue-200 text-blue-600"
-                  }`}
-                >
-                  {CAP_NAMES[slug]}
-                </span>
-              );
-            })}
           </div>
         </div>
       </header>
@@ -253,19 +272,73 @@ export default function AssessmentPage() {
           )}
 
           {state.conversation.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === "ai" ? "justify-start" : "justify-end"}`}
-            >
+            <div key={msg.id}>
               <div
-                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm sm:text-base leading-relaxed ${
-                  msg.role === "ai"
-                    ? "bg-white border border-zinc-200 text-zinc-800 shadow-sm"
-                    : "bg-blue-600 text-white"
-                }`}
+                className={`flex ${msg.role === "ai" ? "justify-start" : "justify-end"}`}
               >
-                {msg.text}
+                <div
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm sm:text-base leading-relaxed ${
+                    msg.role === "ai"
+                      ? "bg-white border border-zinc-200 text-zinc-800 shadow-sm"
+                      : "bg-blue-600 text-white"
+                  }`}
+                >
+                  {msg.text}
+                </div>
               </div>
+              {msg.role === "ai" &&
+                msg.capability &&
+                msg.id === lastQuestion?.id &&
+                !loading &&
+                !assistingLoading && (
+                <div className="flex justify-start mt-1.5 gap-2">
+                  {contextualiseId === msg.id ? (
+                    <>
+                      <input
+                        value={contextInput}
+                        onChange={(e) => setContextInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleContextualise(msg);
+                          }
+                        }}
+                        placeholder="e.g. football, gaming..."
+                        className="flex-1 max-w-48 h-8 px-3 rounded-lg border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleContextualise(msg)}
+                        disabled={!contextInput.trim()}
+                        className="h-8 px-3 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 transition-colors"
+                      >
+                        Go
+                      </button>
+                      <button
+                        onClick={() => { setContextualiseId(null); setContextInput(""); }}
+                        className="h-8 px-3 rounded-lg border border-zinc-300 bg-white text-xs text-zinc-600 hover:text-zinc-800 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleExplain(msg)}
+                        className="text-xs text-zinc-500 hover:text-blue-600 underline underline-offset-2 transition-colors"
+                      >
+                        Explain this
+                      </button>
+                      <button
+                        onClick={() => { setContextualiseId(msg.id); setContextInput(""); }}
+                        className="text-xs text-zinc-500 hover:text-blue-600 underline underline-offset-2 transition-colors"
+                      >
+                        Rephrase
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
@@ -309,7 +382,7 @@ export default function AssessmentPage() {
         <div className="max-w-3xl mx-auto w-full space-y-3">
           {hasOptions ? (
             <div className="flex flex-wrap gap-2 justify-center">
-              {lastAiMsg!.options!.map((opt) => (
+              {lastQuestion!.options!.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => handleSubmitAnswer(opt.label)}

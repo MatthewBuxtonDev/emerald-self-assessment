@@ -31,6 +31,7 @@ const ATTRIBUTE_GUIDE = `You are probing 9 Learner Attributes. Aim for roughly 2
 9. operational-action — Interprets, processes, communicates and acts on information in various modes`;
 
 const JSON_SCHEMA = `{
+  "response": "optional conversational acknowledgment — acknowledge what they said before moving on. Use this to make it feel like a real conversation, not a quiz. Set to null if you have nothing to add and just want to ask the next question." | null,
   "question": {
     "id": "q_N",
     "text": "your question text here",
@@ -170,6 +171,73 @@ Keep the conversation natural — ask about an attribute you haven't explored mu
   ];
 }
 
+export function buildAssistMessages(
+  action: "explain" | "contextualise",
+  context: string | null,
+  question: { text: string; capability?: string },
+  userInfo: UserInfo,
+  conversation: Message[]
+): { role: "system" | "user" | "assistant"; content: string }[] {
+  const conversationLog = conversation
+    .map((m) => `${m.role === "ai" ? "Mentor" : "Student"}: ${m.text}`)
+    .join("\n\n");
+
+  const baseContext = `Student info:
+- Name: ${userInfo.name}
+- Year: ${userInfo.yearLevel}
+- Interests: ${userInfo.interests.join(", ") || "not specified"}
+- Passions: ${userInfo.passions.join(", ") || "not specified"}
+
+Conversation so far:
+${conversationLog}`;
+
+  if (action === "explain") {
+    return [
+      {
+        role: "system",
+        content: `${SYSTEM_GUARDRAILS}
+
+${baseContext}
+
+The student asked you to explain your last question. Provide a brief, simpler explanation of what you're asking. Do NOT change the question — just help them understand what you mean.
+
+Return ONLY valid JSON:
+{ "response": "your explanation here" }`,
+      },
+      {
+        role: "user",
+        content: `Please explain this question in simpler terms (1-3 sentences):
+"${question.text}"`,
+      },
+    ];
+  }
+
+  if (action === "contextualise") {
+    return [
+      {
+        role: "system",
+        content: `${SYSTEM_GUARDRAILS}
+
+${baseContext}
+
+The student asked you to rephrase your question in a specific context. Keep the same learning attribute you were probing, but reframe the question to relate to their chosen context. Provide only the rephrased question — no extra text.
+
+Return ONLY valid JSON:
+{ "response": "the rephrased question here" }`,
+      },
+      {
+        role: "user",
+        content: `Please rephrase this question in the context of "${context}" (relate it to ${context}):
+"${question.text}"
+
+Provide only the rephrased question. Make it sound natural for someone interested in ${context}.`,
+      },
+    ];
+  }
+
+  return [];
+}
+
 export function buildReportMessages(
   userInfo: UserInfo,
   conversation: Message[]
@@ -223,6 +291,7 @@ RULES (critical):
 - The challenge should be one concrete thing to try this week
 - teacherSuggestions provides practical classroom strategies per attribute — write in third person about "this student"
 - nextSteps should be GENERAL (e.g. "Try to engage in more collaborative projects") NOT hyper-specific (e.g. "Try to doodle more in science class")
+- Do NOT reference specific subjects or curriculum content (e.g., "in science class", "during history", "in a biology project"). Focus on learning behaviours, patterns, and approaches — not what subject they were studying.
 
 Return ONLY valid JSON:
 {

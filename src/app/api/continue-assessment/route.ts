@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       question: data.question || null,
+      response: data.response || null,
       ready: data.ready || false,
       complete: data.complete || false,
     });

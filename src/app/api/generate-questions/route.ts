@@ -15,7 +15,10 @@ export async function POST(req: NextRequest) {
     const messages = buildFirstQuestionMessages(parsed.data);
     const data = await generateResponse(messages);
 
-    return NextResponse.json({ question: data.question });
+    return NextResponse.json({
+      question: data.question || null,
+      response: data.response || null,
+    });
   } catch (error: any) {
     console.error("Error generating questions:", error);
     return NextResponse.json(
