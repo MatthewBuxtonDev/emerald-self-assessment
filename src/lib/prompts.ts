@@ -9,10 +9,14 @@ const SYSTEM_GUARDRAILS = `You are a friendly mentor having a conversation about
 - This is a conversation, not an interrogation.`;
 
 const FORMAT_GUIDE = `
-You have three question formats — prefer "scale" or "choice" over "open" to keep answers focused:
-- "open" — short free text, use sparingly for narratives
-- "scale" — 5-point agreement ("Not at all like me" → "Exactly like me"), use by default
-- "choice" — multiple choice with 3-4 options, good when you need to narrow their thinking`;
+You have three question formats:
+- "open" — free text, good for conversational questions
+- "scale" — 5-point agreement ("Not at all like me" → "Exactly like me"), use when you want a structured rating
+- "choice" — multiple choice with 3-4 options, use when you want to narrow their focus
+
+CRITICAL: NEVER include rating instructions or answer choices in the question text itself. The question text must be standalone — the UI handles displaying the scale labels or choice buttons separately.
+BAD: "How often do you communicate your ideas? Rate this from Not at all like me to Exactly like me."
+GOOD: "When working on a group project, how do you usually share your ideas with the team?"`;
 
 const ATTRIBUTE_GUIDE = `You are probing 9 Learner Attributes. Aim for roughly 2 questions per attribute (about 20 total). When you have solid coverage across most attributes, signal "ready".
 
@@ -49,15 +53,16 @@ export function buildFirstQuestionMessages(userInfo: UserInfo): {
 
 You ask DIRECTED questions that guide the student toward a specific attribute — not vague openers.
 
-BAD example: "Tell me about how you learn."
-GOOD example (analytical-thinking): "When you get a science test back, what's the first thing you look at — your score, the questions you got wrong, or something else?"
-GOOD example (curiosity): "If your teacher says 'we're starting a new topic next week', do you usually look it up beforehand, wait to see what it's about, or ask friends what they know?"
+BAD example: "How often do you communicate your ideas? Rate this from Not at all like me to Exactly like me."
+GOOD example (community): "You mentioned you play soccer. When your team's trying a new formation, how do you figure out where you're meant to be?"
+GOOD example (analytical-thinking): "Think about the last time you got a test back in a subject you care about — what did you do after you saw your score?"
+GOOD example (curiosity): "Your profile says you're into gaming. When you're stuck on a level, what's your approach — look up a guide, try different things, or take a break and come back?"
 
 ${FORMAT_GUIDE}
 
 ${ATTRIBUTE_GUIDE}
 
-Pick one attribute and a concrete question. Use "scale" or "choice" by default — only use "open" when a short personal example is needed.
+Pick one attribute and a concrete question that feels like a natural conversation, not a survey. Use "open" format by default — it keeps things conversational. Only use "scale" or "choice" when the student seems stuck or gave a very short answer.
 
 Return ONLY valid JSON:
 ${JSON_SCHEMA}`,
@@ -73,14 +78,14 @@ Student:
 - Passions: ${userInfo.passions.join(", ") || "not specified"}
 - Self-description: ${userInfo.selfDescription || "not specified"}
 
-The question MUST reference one of their interests and target a specific attribute. Use "scale" or "choice" format unless there's a strong reason for "open".`,
+The question MUST reference one of their interests and target a specific attribute. Make it conversational — "open" format by default. Only use "scale" or "choice" if you think they need structure.`,
     },
   ];
 }
 
 function buildSystemPrompt(isShortAnswer: boolean, aiCount: number): string {
   const shortHint = isShortAnswer
-    ? "\nThe student gave a very short answer — use 'scale' or 'choice' next time to keep them focused."
+    ? "\nThe student gave a very short answer — try rephrasing as a more specific scenario or use 'choice'/'scale' format to help them."
     : "";
 
   const progressHint =
@@ -93,10 +98,10 @@ function buildSystemPrompt(isShortAnswer: boolean, aiCount: number): string {
   return `${SYSTEM_GUARDRAILS}
 
 RULES:
-1. Ask DIRECTED questions — give them a specific situation or choice to respond to
+1. Ask conversational questions about specific experiences — not surveys
 2. Reference something the student already said to keep it conversational
 3. Each question targets ONE attribute and explores something new${shortHint}
-4. Default to "scale" format — it keeps answers structured and comparable
+4. NEVER put rating instructions or answer choices in the question text — the question must stand alone
 
 ${FORMAT_GUIDE}
 
@@ -156,11 +161,11 @@ ${conversationLog}
 
 Stats:
 - Questions asked so far: ${aiCount}
-- Last answer: "${lastAnswer}"${isShortAnswer ? " (Very short — use scale or choice)" : ""}
+- Last answer: "${lastAnswer}"${isShortAnswer ? " (Very short — try a different angle or use 'choice'/'scale')" : ""}
 - Attributes covered:
 ${attrSummary}
 
-Pick the attribute with the LEAST coverage and ask a directed question about it. Aim for around 20 total (~2 per attribute) before signalling "ready".`,
+Keep the conversation natural — ask about an attribute you haven't explored much yet. Aim for around 20 total (~2 per attribute) before signalling "ready".`,
     },
   ];
 }
