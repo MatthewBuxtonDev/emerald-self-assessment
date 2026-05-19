@@ -79,11 +79,11 @@ function buildSystemPrompt(isShortAnswer: boolean, aiCount: number): string {
     : "";
 
   const progressHint =
-    aiCount < 10
+    aiCount < 7
       ? "You're still early in the conversation. Keep probing different aspects."
-      : aiCount < 20
+      : aiCount < 15
         ? "You're building a picture. Make sure each theme has coverage across multiple angles."
-        : "You should have solid coverage by now. Only signal ready if you've explored each theme thoroughly across at least 3-4 different angles each.";
+        : "You should have solid coverage by now. Only signal ready if you've explored each theme thoroughly across at least 2-3 different angles each.";
 
   return `${SYSTEM_GUARDRAILS}
 
@@ -96,8 +96,8 @@ ${FORMAT_GUIDE}
 
 ${THEME_GUIDE}
 
-READY: set "ready": true ONLY when you have built a holistic picture — aim for 25-35+ questions exploring multiple angles of each theme. Only signal ready when you genuinely have enough depth across all three themes.
-COMPLETE: set "complete": true only if the conversation has gone very long (40+ questions) or the student is clearly disengaged.
+READY: set "ready": true ONLY when you have built a holistic picture — aim for around 20 questions, roughly 6-7 per theme. Only signal ready when you have depth across all three themes.
+COMPLETE: set "complete": true only if the conversation has gone very long (30+ questions) or the student is clearly disengaged.
 
 Progress: ${aiCount} questions asked so far. ${progressHint}
 
@@ -141,7 +141,7 @@ Stats:
 - Thinking about Learning: ${capCounts["metacognition"] || 0}x
 - Taking Action: ${capCounts["agency"] || 0}x
 
-If you have enough depth across all themes (aim for 25-35+ questions total, exploring multiple angles per theme), set "ready": true. Only set "complete": true if the conversation is very long (40+) or the student is disengaged.`,
+If you have enough depth across all themes (aim for around 20 questions total, roughly 6-7 per theme), set "ready": true. Only set "complete": true if the conversation is very long (30+) or the student is disengaged.`,
     },
   ];
 }

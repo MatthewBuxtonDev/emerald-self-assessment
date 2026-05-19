@@ -185,7 +185,7 @@ export default function AssessmentPage() {
                 const count = state.conversation.filter(
                   (m) => m.role === "ai" && m.capability === code
                 ).length;
-                const pct = Math.min(Math.round((count / 10) * 100), 100);
+                const pct = Math.min(Math.round((count / 7) * 100), 100);
                 return (
                   <span
                     key={code}
