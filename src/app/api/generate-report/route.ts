@@ -20,14 +20,11 @@ export async function POST(req: NextRequest) {
     );
     const data = await generateResponse(systemInstruction, prompt);
 
-    return NextResponse.json({
-      profile: data.profile,
-    });
-  } catch (error) {
+    return NextResponse.json({ profile: data.profile });
+  } catch (error: any) {
     console.error("Error generating report:", error);
-    return NextResponse.json(
-      { error: "Failed to generate report" },
-      { status: 502 }
-    );
+    const message =
+      error?.message || "Failed to generate report";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

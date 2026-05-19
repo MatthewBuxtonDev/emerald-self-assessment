@@ -21,11 +21,10 @@ export async function POST(req: NextRequest) {
       question: data.question || null,
       complete: data.complete || false,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error continuing assessment:", error);
-    return NextResponse.json(
-      { error: "Failed to continue assessment" },
-      { status: 502 }
-    );
+    const message =
+      error?.message || "Failed to continue assessment";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

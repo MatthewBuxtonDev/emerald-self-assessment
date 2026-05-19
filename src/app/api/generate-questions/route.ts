@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid user info", details: parsed.error.flatten() },
+        { error: "Invalid user info" },
         { status: 400 }
       );
     }
@@ -18,14 +18,11 @@ export async function POST(req: NextRequest) {
     const { systemInstruction, prompt } = buildFirstQuestionPrompt(parsed.data);
     const data = await generateResponse(systemInstruction, prompt);
 
-    return NextResponse.json({
-      question: data.question,
-    });
-  } catch (error) {
+    return NextResponse.json({ question: data.question });
+  } catch (error: any) {
     console.error("Error generating questions:", error);
-    return NextResponse.json(
-      { error: "Failed to generate questions" },
-      { status: 502 }
-    );
+    const message =
+      error?.message || "Failed to generate questions";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
