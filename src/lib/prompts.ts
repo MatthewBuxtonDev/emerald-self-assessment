@@ -93,7 +93,7 @@ function buildSystemPrompt(isShortAnswer: boolean, aiCount: number): string {
       ? "You're still early. Keep moving across different attributes — don't dwell on one area."
       : aiCount < 15
         ? "You're building a picture. Target attributes you've asked about least."
-        : "You should have decent coverage by now. Only signal ready if most attributes have been visited at least once.";
+        : "You're approaching readiness. Consider asking: 'I think I have a good picture now — is there anything else you'd like to add?' Then signal ready.";
 
   return `${SYSTEM_GUARDRAILS}
 
@@ -107,7 +107,7 @@ ${FORMAT_GUIDE}
 
 ${ATTRIBUTE_GUIDE}
 
-READY: If questions >= 18, ALWAYS set "ready": true. Never exceed 25 without setting ready.
+READY: Once questions >= 18, ALWAYS set "ready": true. Never exceed 25 without setting ready. Before signalling ready at ~15-17, ask the student: "Is there anything else you'd like to add before I wrap up?" This gives them a chance to add anything not yet covered.
 COMPLETE: If questions >= 30, ALWAYS set "complete": true.
 
 Progress: ${aiCount} questions asked so far. ${progressHint}
@@ -165,7 +165,7 @@ Stats:
 - Attributes covered:
 ${attrSummary}
 
-Keep the conversation natural — ask about an attribute you haven't explored much yet. Aim for around 20 total (~2 per attribute) before signalling "ready".`,
+Keep the conversation natural — ask about an attribute you haven't explored much yet. Around 15-17 questions, ask if they have anything else to add. Signal "ready" at 18+.`,
     },
   ];
 }
@@ -213,10 +213,12 @@ The profile should assess the student across these 9 Learner Attributes:
 RULES (critical):
 - NO scores, NO levels, NO rubric language
 - BE HONEST: If the student gave shallow answers or said "I don't know" repeatedly, say so. Frame it as a starting point, not a flaw.
-- Write in second person ("you") for student sections
-- Reference specific things the student said (or didn't say) to ground each observation
-- Don't invent strengths where the conversation reveals nothing
-- For attributes with little data, say "There wasn't enough conversation to assess this yet" rather than guessing
+- DO NOT restate or reword what the student said. That's not a profile — that's a transcript. Synthesise BIGGER TRUTHS across multiple answers.
+- Look for patterns across the conversation. If they consistently described trying things on their own before asking for help across multiple scenarios, say "You tend to learn by experimenting independently" NOT "You said you try things on your own when stuck on a level."
+- DO NOT treat hypothetical/leading questions as evidence of student behaviour. If you asked "If you had to break down a problem..." and they said "yes", that does not mean they actually break down problems in real life. Only draw conclusions from what the student VOLUNTEERED about their actual experiences.
+- If there isn't enough evidence for a genuine pattern, say "There wasn't enough conversation to assess this yet" rather than inventing a conclusion.
+- Write in second person ("you") for student sections — but don't reference specific answers. Write at a higher level: "You tend to learn best when..." not "You said that when you play soccer..."
+- The narrative, strengths, interestsConnection, and challenge sections should all speak to the student at an abstract level about who they are as a learner and where they could grow — not recount the conversation.
 - Every next step must be constructive and encouraging but not flattering
 - The challenge should be one concrete thing to try this week
 - teacherSuggestions provides practical classroom strategies per attribute — write in third person about "this student"
@@ -227,19 +229,19 @@ Return ONLY valid JSON:
   "profile": {
     "studentName": "${userInfo.name}",
     "dateGenerated": "${new Date().toISOString().split("T")[0]}",
-    "narrative": "5-6 sentence warm summary covering who they are, key attributes, and how they learn best",
+    "narrative": "5-6 sentence overview of who they are as a learner — patterns, tendencies, and where they have room to grow. Do not reference specific questions or answers.",
     "themes": [
       {
         "name": "Analytical Thinking" | "Creativity" | "Curiosity" | "Mindful Agency" | "Motivation" | "Resilience" | "Community" | "Humanitarianism" | "Operational Action",
-        "strength": "What they do well in this area, referencing something they said",
-        "growth": "A specific area to develop within this attribute"
+        "strength": "What the conversation reveals about their tendency in this area (synthesised from multiple answers, not a single quote)",
+        "growth": "Where they could develop within this attribute, based on gaps in the conversation"
       }
     ],
     "strengths": [
-      { "title": "Short strength label", "narrative": "3-4 sentences referencing what they shared and how it shows up in their learning" }
+      { "title": "Short strength label", "narrative": "3-4 sentences about a genuine pattern observed across the conversation — not restating one answer" }
     ],
-    "nextSteps": ["specific suggestion 1", "specific suggestion 2", "specific suggestion 3", "specific suggestion 4", "specific suggestion 5"],
-    "interestsConnection": "How their passions connect to their learning journey across these attributes, with 2-3 specific examples from the conversation",
+    "nextSteps": ["general suggestion 1", "general suggestion 2", "general suggestion 3", "general suggestion 4", "general suggestion 5"],
+    "interestsConnection": "How their interests connect to their learning — written at an abstract level about motivation and engagement, not recounting Q&As",
     "challenge": "One specific thing to try this week that ties together multiple attributes",
     "teacherSuggestions": [
       {
@@ -284,7 +286,7 @@ Return ONLY valid JSON:
     },
     {
       role: "user",
-      content: `Write a comprehensive, detailed Learner Profile for this student based on their full conversation.
+      content: `Write an honest, synthesised Learner Profile for this student. Do NOT reword the conversation — identify patterns and bigger truths.
 
 Student: ${userInfo.name}
 Year: ${userInfo.yearLevel}
@@ -296,7 +298,7 @@ Full conversation:
 ${conversationLog}
 
 ${engagementNote}
-Cover every attribute the conversation gives insight into. If coverage was light, say so honestly. nextSteps should be general strategies (e.g. "Try to engage in more collaborative projects to build teamwork skills") not hyper-specific tasks. Write teacherSuggestions for ALL 9 attributes — keep strategies general enough to apply across subjects but specific enough to be useful.`,
+Cover every attribute the conversation gives insight into. If coverage was light, say so honestly — don't fabricate patterns. nextSteps should be general strategies (e.g. "Try to engage in more collaborative projects to build teamwork skills") not hyper-specific tasks. Write teacherSuggestions for ALL 9 attributes — keep strategies general enough to apply across subjects.`,
     },
   ];
 }
