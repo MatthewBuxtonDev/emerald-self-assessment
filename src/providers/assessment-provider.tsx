@@ -34,7 +34,14 @@ const initialState: AppState = {
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "SET_USER_INFO":
-      return { ...state, userInfo: action.payload };
+      return {
+        ...state,
+        userInfo: action.payload,
+        conversation: [],
+        profile: null,
+        isComplete: false,
+        error: null,
+      };
     case "ADD_MESSAGE":
       return {
         ...state,
