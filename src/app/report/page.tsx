@@ -9,6 +9,8 @@ export default function ReportPage() {
   const { state, setProfile, setStep, setError, reset } = useAssessment();
   const [pdfLoading, setPdfLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [showTeacher, setShowTeacher] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -16,14 +18,14 @@ export default function ReportPage() {
       router.push("/");
       return;
     }
-
-    if (!state.profile && !generating) {
+    if (!state.profile && !generating && !reportError) {
       generateReport();
     }
   }, []);
 
   async function generateReport() {
     setGenerating(true);
+    setReportError(null);
     setStep("generating");
 
     try {
@@ -36,16 +38,20 @@ export default function ReportPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to generate report");
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Failed to generate profile");
+      }
 
       const data = await res.json();
       if (!data.profile) throw new Error("Empty response");
 
       setProfile(data.profile);
       setStep("report");
-    } catch {
-      setError("Failed to generate your profile. Please try again.");
-      router.push("/assessment");
+    } catch (err: any) {
+      const msg = err.message || "Something went wrong.";
+      setReportError(msg);
+      setError(msg);
     } finally {
       setGenerating(false);
     }
@@ -99,6 +105,32 @@ export default function ReportPage() {
   }
 
   if (!state.profile) {
+    if (reportError) {
+      return (
+        <div className="flex-1 flex items-center justify-center min-h-screen px-4">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+              <p className="text-sm text-red-700 leading-relaxed">{reportError}</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={generateReport}
+                className="h-11 px-6 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Try again
+              </button>
+              <button
+                onClick={() => router.push("/assessment")}
+                className="h-11 px-6 rounded-full border border-zinc-300 text-zinc-600 text-sm font-medium hover:bg-zinc-50 transition-colors"
+              >
+                Back to questions
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex items-center justify-center min-h-screen">
         <div className="text-center space-y-3">
@@ -114,7 +146,6 @@ export default function ReportPage() {
   }
 
   const profile = state.profile;
-  const [showTeacher, setShowTeacher] = useState(false);
 
   return (
     <div className="flex-1 flex flex-col items-center px-4 sm:px-6 py-8 sm:py-12">
@@ -230,7 +261,6 @@ export default function ReportPage() {
               {profile.challenge}
             </p>
           </div>
-          </div>
 
           {profile.teacherSuggestions && profile.teacherSuggestions.length > 0 && (
             <div className="space-y-3">
@@ -268,25 +298,26 @@ export default function ReportPage() {
           )}
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={downloadPDF}
-            disabled={pdfLoading}
-            className="h-12 sm:h-11 px-6 sm:px-8 rounded-full bg-blue-600 text-white text-sm sm:text-base font-medium hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 transition-colors shadow-sm"
-          >
-            {pdfLoading ? "Generating PDF..." : "Download as PDF"}
-          </button>
-          <button
-            onClick={handleStartOver}
-            className="h-12 sm:h-11 px-6 sm:px-8 rounded-full border border-zinc-300 text-zinc-600 text-sm sm:text-base font-medium hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
-          >
-            Start Over
-          </button>
-        </div>
+            <button
+              onClick={downloadPDF}
+              disabled={pdfLoading}
+              className="h-12 sm:h-11 px-6 sm:px-8 rounded-full bg-blue-600 text-white text-sm sm:text-base font-medium hover:bg-blue-700 active:bg-blue-800 disabled:opacity-40 transition-colors shadow-sm"
+            >
+              {pdfLoading ? "Generating PDF..." : "Download as PDF"}
+            </button>
+            <button
+              onClick={handleStartOver}
+              className="h-12 sm:h-11 px-6 sm:px-8 rounded-full border border-zinc-300 text-zinc-600 text-sm sm:text-base font-medium hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
+            >
+              Start Over
+            </button>
+          </div>
 
-        <p className="text-xs text-zinc-500 text-center leading-relaxed">
-          This profile is based on our conversation and is meant to celebrate
-          your strengths and suggest next steps.
-        </p>
+          <p className="text-xs text-zinc-500 text-center leading-relaxed">
+            This profile is based on our conversation and is meant to celebrate
+            your strengths and suggest next steps.
+          </p>
+        </div>
       </div>
     </div>
   );

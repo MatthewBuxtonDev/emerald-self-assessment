@@ -107,8 +107,8 @@ ${FORMAT_GUIDE}
 
 ${ATTRIBUTE_GUIDE}
 
-READY: set "ready": true when most attributes have at least one question (aim for ~20 total, roughly 2 per attribute). Only signal ready when you have a well-rounded picture.
-COMPLETE: set "complete": true only if very long (30+ questions) or the student is disengaged.
+READY: If questions >= 18, ALWAYS set "ready": true. Never exceed 25 without setting ready.
+COMPLETE: If questions >= 30, ALWAYS set "complete": true.
 
 Progress: ${aiCount} questions asked so far. ${progressHint}
 
@@ -120,7 +120,7 @@ export function buildContinuationMessages(
   conversation: Message[]
 ): { role: "system" | "user" | "assistant"; content: string }[] {
   const conversationLog = conversation
-    .map((m) => `Mentor: ${m.text}`)
+    .map((m) => `${m.role === "ai" ? "Mentor" : "Student"}: ${m.text}`)
     .join("\n\n");
 
   const lastAnswer = conversation
