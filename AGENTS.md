@@ -57,6 +57,10 @@ src/
 - Each interactive component handles: loading, empty, active, error, disabled, success states
 - Environment variables: only `GEMINI_API_KEY` required; `NEXT_PUBLIC_APP_URL` optional
 - All state is ephemeral — closing the tab = clean slate
+- All pages use responsive design (`px-4 sm:px-6`, touch-friendly targets, `sm:` breakpoints)
+- Color contrast: never use `text-zinc-400` on light backgrounds (2.4:1 fails WCAG AA); use `text-zinc-500` minimum
+- API routes use lazy import of `@google/generative-ai` inside the handler to avoid build-time errors
+- Error messages in assessment page are specific (detect 502, "API key not configured", etc.)
 
 ## Questions to Ask Before Making Changes
 
